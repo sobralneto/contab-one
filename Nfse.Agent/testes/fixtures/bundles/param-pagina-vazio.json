@@ -1,0 +1,18 @@
+{
+  "portal": {
+    "urlLogin": "https://certificado.nfse.gov.br/EmissorNacional/Certificado",
+    "urlNotas": "https://www.nfse.gov.br/EmissorNacional/Notas",
+    "urlApiXml": "https://sefin.nfse.gov.br/sefinnacional/nfse",
+    "maxDiasFiltro": 31,
+    "paramPagina": "",
+    "listagens": {
+      "recebidas": {"rota": "Recebidas", "executar": true, "colunas": ["geracao"]},
+      "emitidas": {"rota": "Emitidas", "executar": false, "colunas": ["geracao"]}
+    }
+  },
+  "parsing": {
+    "regexChave": "/Notas/Download/NFSe/(\\d{40,60})",
+    "regexLinha": "<tr[^>]*>(.*?)</tr>",
+    "regexTotalRegistros": "Total de\\s*(\\d+)\\s*registros?"
+  }
+}

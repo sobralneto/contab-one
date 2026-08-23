@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="ContabOne.Api.Tests/ContabOne.Api.Tests.csproj" />
+  <Project Path="ContabOne.Api/ContabOne.Api.csproj" />
+</Solution>

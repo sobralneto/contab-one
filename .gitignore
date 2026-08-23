@@ -1,0 +1,169 @@
+# ==========================================================================
+# 1. DADOS SENSÍVEIS — nunca commitar
+#
+# Esta é a seção que importa de verdade neste repositório. O agente roda na
+# máquina do escritório contábil, em cima de certificados digitais e notas
+# fiscais de clientes reais. Um vazamento aqui não é "arquivo grande no
+# histórico": é a chave privada de uma empresa de terceiros no GitHub.
+#
+# Se você editar este arquivo, NÃO afrouxe esta seção sem conferir o que
+# passou a ser rastreado (`git status --ignored`).
+# ==========================================================================
+
+# Certificados A1. O padrão de nome recomendado
+# (codigo_CNPJ_Nome_s.SENHA_v.DD.MM.AAAA.pfx) embute o CNPJ completo E a senha
+# em texto puro — o nome do arquivo já é um segredo, mesmo sem o conteúdo.
+certificados/
+*.pfx
+*.p12
+*.pem
+*.key
+
+# Saída da coleta: XML e PDF de notas fiscais, CSV de listagem, razão social e
+# CNPJ dos clientes do escritório.
+notas/
+
+# Estado por cliente (chaves de notas já baixadas, controle de backfill).
+_controle.json
+
+# Dashboard local do agente, removido em 09/08/2026 (o painel agora é só o
+# frontend web). O ignore fica para as sobras em máquinas que já rodaram
+# versões antigas: agregam notas/ e têm nome e CNPJ COMPLETO dos clientes.
+_dashboard.json
+_dashboard.data.js
+
+# Cache de licença do agente: mesmos dados do escritório que o handshake
+# devolveu, assinados mas não criptografados.
+_agente_cache.json
+
+# Fila de relatórios que falharam ao subir (contagens por cliente/competência).
+_pendencias/
+
+# Cache do bundle de regras de coleta (URLs e regexes do portal).
+_regras_cache.json
+
+# Logs de execução — mensagens de erro carregam nome de cliente, CNPJ e
+# caminho de pasta.
+logs/
+*.log
+
+# config.toml do agente: contém `senha_padrao` e a seção [api] com `chave`
+# (credencial bearer de tudo em /api/agent/*). Commite `config.exemplo.toml`
+# no lugar dele.
+Nfse.Agent/config.toml
+
+# Variáveis de ambiente com segredos (JWT_SIGNING_KEY, HMAC_CNPJ_KEY,
+# DATABASE_URL). Os .env.development/.test/.production do frontend NÃO entram
+# aqui de propósito: têm só a VITE_API_URL, que é embutida no build e precisa
+# estar versionada para o build funcionar num clone limpo.
+.env
+.env.local
+.env.*.local
+!.env.example
+appsettings.*.local.json
+
+
+# ==========================================================================
+# 2. .NET / ContabOne.Api
+# ==========================================================================
+
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+*.DotSettings.user
+.vs/
+artifacts/
+TestResults/
+*.trx
+*.coverage
+*.coverlet.json
+coverage*.json
+coverage*.xml
+msbuild.log
+*.nupkg
+
+
+# ==========================================================================
+# 3. Node / frontend
+# ==========================================================================
+
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+vite.config.*.timestamp-*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.eslintcache
+*.tsbuildinfo
+
+# Playwright — artefatos das duas suítes (ContabOne.Frontend/e2e e ContabOne.Frontend/testes-ui).
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
+
+
+# ==========================================================================
+# 4. Python / Nfse.Agent
+#
+# Nota: `dist/` (seção 3) também cobre o dist/ do PyInstaller — a pasta
+# dist/nfse/ é artefato de build, gerada por `python build.py`, e não deve
+# ser versionada nem editada à mão.
+# ==========================================================================
+
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Specs geradas pelo PyInstaller. Escopado ao agente de propósito: uma regra
+# `*.spec` solta é inofensiva para os testes `*.spec.ts` do frontend (a glob
+# casa o fim do nome), mas escopar deixa a intenção explícita.
+Nfse.Agent/*.spec
+Nfse.Agent/build/
+
+
+# ==========================================================================
+# 5. Editores, ferramentas e sistema operacional
+# ==========================================================================
+
+# Configuração local de agentes de código (permissões da máquina).
+# O resto de .claude/ (commands/, skills/) é config de projeto e vai junto.
+.claude/settings.local.json
+**/.claude/settings.local.json
+.opencode/node_modules/
+
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+.idea/
+*.swp
+*.sw?
+*~
+
+# Windows / macOS / OneDrive
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+.AppleDouble
+
+# Escrita atômica (padrão .tmp + replace usado no _controle.json).
+*.tmp

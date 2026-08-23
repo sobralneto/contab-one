@@ -1,0 +1,142 @@
+/* ── Design Tokens — Contab One ──
+   Paleta da marca: quatro verdes (do mais escuro ao mais claro) + cinza neutro.
+
+     #0D402D  verde escuro    — 11,7:1 sobre branco
+     #34734A  verde médio     —  5,7:1 sobre branco  ← único que passa AA como texto no tema claro
+     #5FA65D  verde claro     —  3,0:1 sobre branco  ← só preenchimento; como texto, apenas sobre escuro
+     #6EBF6B  verde vivo      —  2,3:1 sobre branco  ← idem; 8,6:1 sobre a sidebar escura
+     #F2F2F2  cinza neutro    — fundo de página
+
+   Por isso o accent do tema claro é o #34734A e o do escuro é o #5FA65D/#6EBF6B:
+   os dois claros não têm contraste para texto sobre fundo branco. */
+
+:root {
+  /* ── Surface ── */
+  --surface-page:     #F2F2F2;
+  --surface-card:     #ffffff;
+  /* Faixa do topo: o espaço da logo na sidebar + a topbar do título. Os dois
+     têm 60px e se encostam, então compartilham a cor para formar uma barra
+     contínua atravessando a tela. */
+  --surface-topo:     #ffffff;
+
+  /* ── Sidebar ──
+     A barra acompanha o tema: clara no modo claro, escura no escuro.
+     Por isso as cores dela são tokens próprios, e não branco fixo. */
+  --surface-sidebar:  #ffffff;
+  --surface-sidebar-hover: rgba(13, 64, 45, 0.06);
+  --sidebar-border:   #e2e8f0;
+  --sidebar-text:     #0f172a;
+  --sidebar-text-suave: #475569;
+  --sidebar-text-fraco: #64748b;
+  --sidebar-ativo-bg: #E6F3E5;
+  --sidebar-ativo-text: #0D402D;  /* 10,2:1 sobre o fundo ativo */
+  --sidebar-ativo-marca: #5FA65D;
+
+  /* ── Border ── */
+  --border:           #e2e8f0;
+  --border-forte:     #cbd5e1;
+
+  /* ── Text ── */
+  --text-primary:     #0f172a;
+  --text-secondary:   #475569;
+  --text-muted:       #64748b;
+
+  /* ── Accent (verdes da marca) ── */
+  --accent:           #34734A;
+  --accent-hover:     #0D402D;
+  --accent-suave:     #E6F3E5;
+  /* Claro → escuro, na mesma direção do degradê da logomarca. */
+  --accent-gradient:  linear-gradient(135deg, #5FA65D 0%, #34734A 50%, #0D402D 100%);
+  /* Cor de texto/glifo por cima do degradê. Existe como token porque no dark
+     o degradê usa os verdes claros e o branco deixa de ter contraste ali. */
+  --accent-gradient-texto: #ffffff;
+  /* Componentes do accent em RGB para sombras coloridas — evita repetir o
+     valor literal em cada botão e faz a sombra virar junto com o tema. */
+  --accent-rgb:       52, 115, 74;
+
+  /* ── Semantic ── */
+  --sucesso:          #34734A;
+  --sucesso-suave:    #E6F3E5;
+  --atencao:          #d97706;
+  --atencao-suave:    #fef3c7;
+  --erro:             #dc2626;
+  --erro-suave:       #fecaca;
+
+  /* ── Data series (charts) ── */
+  --series-recebidas: #34734A;
+  --series-emitidas:  #d97706;
+
+  /* ── Typography ── */
+  --font-family:      'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:        ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+
+  /* ── Radius ── */
+  --radius-sm:        6px;
+  --radius-md:        10px;
+  --radius-lg:        16px;
+
+  /* ── Shadow ── */
+  --shadow-xs:        0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm:        0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md:        0 4px 6px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg:        0 10px 15px rgba(0, 0, 0, 0.06), 0 4px 6px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Dark mode tokens ──
+   Aqui a hierarquia inverte: os verdes claros é que têm contraste sobre os
+   fundos escuros (#5FA65D 6,0:1 e #6EBF6B 7,9:1 sobre a página), e os escuros
+   somem. */
+.dark {
+  /* Rampa de superfícies, do mais escuro ao mais claro:
+       #020617  faixa do topo (logo + título)
+       #0A1020  menu e conteúdo — mesmo tom, separados só pela borda
+       #1E293B  cards
+     A faixa do topo emoldura a tela; menu e conteúdo formam um plano só, e os
+     cards são a única superfície que se levanta dele. */
+  --surface-page:     #0A1020;
+  --surface-card:     #1e293b;
+  --surface-topo:     #020617;
+
+  --surface-sidebar:  #0A1020; /* igual a --surface-page, de propósito */
+  --surface-sidebar-hover: rgba(255, 255, 255, 0.06);
+  --sidebar-border:   rgba(255, 255, 255, 0.06);
+  --sidebar-text:     #f1f5f9;
+  --sidebar-text-suave: rgba(255, 255, 255, 0.55);
+  --sidebar-text-fraco: rgba(255, 255, 255, 0.4);
+  --sidebar-ativo-bg: rgba(52, 115, 74, 0.28);
+  --sidebar-ativo-text: #6EBF6B;  /* 8,6:1 sobre a sidebar */
+  --sidebar-ativo-marca: #6EBF6B;
+
+  --border:           #334155;
+  --border-forte:     #475569;
+
+  --text-primary:     #f1f5f9;
+  --text-secondary:   #94a3b8;
+  --text-muted:       #64748b;
+
+  --accent:           #5FA65D;
+  --accent-hover:     #6EBF6B;
+  --accent-suave:     rgba(52, 115, 74, 0.18);
+  /* Mais claro que no tema claro (o #0D402D sai), porque sobre card escuro os
+     verdes escuros somem. Não sobe até o #6EBF6B porque o texto dos botões é
+     branco: sobre o verde mais claro o branco cai para 2,3:1, contra 4,1:1 no
+     meio deste degradê. */
+  --accent-gradient:  linear-gradient(135deg, #5FA65D 0%, #34734A 100%);
+  --accent-gradient-texto: #ffffff;
+  --accent-rgb:       95, 166, 93;
+
+  --sucesso:          #6EBF6B;
+  --sucesso-suave:    rgba(52, 115, 74, 0.18);
+  --atencao:          #fbbf24;
+  --atencao-suave:    rgba(217, 119, 6, 0.15);
+  --erro:             #f87171;
+  --erro-suave:       rgba(220, 38, 38, 0.15);
+
+  --series-recebidas: #6EBF6B;
+  --series-emitidas:  #fbbf24;
+
+  --shadow-xs:        0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm:        0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md:        0 4px 6px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-lg:        0 10px 15px rgba(0, 0, 0, 0.3), 0 4px 6px rgba(0, 0, 0, 0.2);
+}

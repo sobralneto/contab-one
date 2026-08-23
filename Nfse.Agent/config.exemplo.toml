@@ -1,0 +1,38 @@
+# Modelo de configuração da ferramenta NFS-e.
+#
+# Copie para `config.toml` (que é gitignored — contém senha de certificado e a
+# chave da API) e preencha com os valores reais:
+#
+#     copy config.exemplo.toml config.toml     (Windows)
+#     cp   config.exemplo.toml config.toml     (bash)
+#
+# Este arquivo só guarda o que a plataforma NUNCA deve custodiar: a
+# credencial da API e a senha dos certificados. Tudo o mais (tipos de nota,
+# pasta de saída, geração de PDF, data de backfill, período padrão de busca)
+# é configurado na tela de Configuração do painel e chega pela própria API
+# no handshake — não precisa (e não deve) ser editado aqui.
+
+# Senha usada para QUALQUER certificado cujo nome de arquivo não traga a
+# senha (padrão "_s.SENHA_"). Com isso a ferramenta nunca pede senha no
+# console — nem em execução manual, nem numa tarefa agendada.
+senha_padrao = "TROQUE-PELA-SENHA-DOS-CERTIFICADOS"
+
+# Exceções: certificados com senha diferente da padrão acima. A chave é o
+# NOME DO ARQUIVO do certificado (não depende de nenhum padrão de nome).
+#
+# [senhas]
+# "NomeDoCertificado.pfx" = "outra-senha-so-deste-certificado"
+
+# Conexão com o painel SaaS (opcional). Deixe a seção inteira comentada, ou
+# com "url"/"chave" vazios, para rodar em modo legado — exatamente como hoje,
+# sem nenhuma chamada de rede além do próprio Portal Nacional NFS-e. Só liga
+# o modo agente (identidade, licenciamento, métricas, configuração remota)
+# quando os dois campos abaixo estiverem preenchidos.
+#
+# [api]
+# url = "https://api.seudominio.com.br"
+# chave = "nfse_a1b2c3d4_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# # Dias que o agente continua funcionando normalmente se o painel estiver
+# # fora do ar (usando a última resposta válida em cache). Passado esse
+# # prazo, a ferramenta para e pede para verificar a conexão.
+# tolerancia_offline_dias = 7

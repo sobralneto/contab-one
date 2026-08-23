@@ -1,0 +1,14 @@
+{
+  "_comentario": "Corpus compartilhado entre o validador Python (regras.validar_bundle, autoridade) e o validador C# (RegraColetaValidator, portão de usabilidade do POST /api/admin/regras). Cada caso declara a lista de CAMPOS problemáticos esperada (nomes de campo, não mensagens completas — o texto do erro de regex difere entre as engines). Os testes em Nfse.Agent/testes/teste_corpus_bundles.py e ContabOne.Api.Tests/BundleCorpusTest.cs leem este manifest e conferem os vereditos.",
+  "casos": [
+    {"arquivo": "bom.json", "campos": []},
+    {"arquivo": "url-sem-https.json", "campos": ["portal.urlLogin"]},
+    {"arquivo": "max-dias-fora-da-faixa.json", "campos": ["portal.maxDiasFiltro"]},
+    {"arquivo": "max-dias-booleano.json", "campos": ["portal.maxDiasFiltro"]},
+    {"arquivo": "param-pagina-vazio.json", "campos": ["portal.paramPagina"]},
+    {"arquivo": "listagem-faltando.json", "campos": ["portal.listagens.recebidas"]},
+    {"arquivo": "colunas-vazia.json", "campos": ["portal.listagens.recebidas.colunas"]},
+    {"arquivo": "colunas-nao-string.json", "campos": ["portal.listagens.recebidas.colunas"]},
+    {"arquivo": "regex-invalida.json", "campos": ["parsing.regexLinha"]}
+  ]
+}

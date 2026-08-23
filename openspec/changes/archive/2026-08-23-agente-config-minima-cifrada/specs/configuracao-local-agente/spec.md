@@ -1,0 +1,54 @@
+## ADDED Requirements
+
+### Requirement: `config.toml` só documenta credencial de API e segredo de certificado
+
+O template `config.exemplo.toml` DEVE (MUST) documentar apenas: a seção
+`[api]` (`url`, `chave`, `tolerancia_offline_dias`) e o bloco de senha de
+certificado (`senha_padrao` e `[senhas]`). Preferências operacionais do
+escritório (tipos de nota, pasta de saída, geração de PDF, data de backfill,
+tamanho do período padrão) NÃO DEVEM (MUST NOT) constar no template — esses
+valores são entregues pelo handshake e editados na tela de Configuração.
+
+#### Scenario: Novo escritório copia o template
+
+- **WHEN** um escritório copia `config.exemplo.toml` para `config.toml` pela
+  primeira vez
+- **THEN** o arquivo resultante contém somente `[api]` e o bloco de senha, e
+  a ferramenta usa os valores padrão embutidos no código para tudo o mais
+  até o primeiro handshake bem-sucedido
+
+#### Scenario: `config.toml` antigo com as chaves removidas do template
+
+- **WHEN** um `config.toml` existente ainda declara `pasta_saida`, `tipos`,
+  `gerar_pdf`, `primeira_busca_desde` ou `dias_busca_padrao`
+- **THEN** a ferramenta continua lendo esses valores normalmente como
+  configuração local de fallback — a remoção do template não invalida
+  arquivos existentes
+
+### Requirement: Senha do certificado resolvida pelo nome do arquivo
+
+A seção `[senhas]` de `config.toml` DEVE (MUST) ser indexada pelo nome do
+arquivo do certificado (`nome_do_arquivo.pfx`), não pelo código da empresa
+extraído do nome. A ordem de resolução de senha permanece: senha embutida no
+nome do arquivo → `[senhas]` pelo nome do arquivo → `senha_padrao` →
+variável de ambiente `NFSE_PFX_SENHA`.
+
+#### Scenario: Certificado com exceção de senha
+
+- **WHEN** um `.pfx` chamado `ClienteExemplo.pfx` não traz senha no nome e
+  `config.toml` tem `[senhas]` com a chave `"ClienteExemplo.pfx"`
+- **THEN** a ferramenta usa a senha dessa entrada para abrir o certificado
+
+#### Scenario: Certificado sem entrada em `[senhas]`
+
+- **WHEN** o nome do arquivo do certificado não tem entrada correspondente
+  em `[senhas]`
+- **THEN** a ferramenta usa `senha_padrao`, e só falha se `senha_padrao`
+  também estiver ausente
+
+#### Scenario: Certificado sem convenção de nomenclatura
+
+- **WHEN** um `.pfx` não segue o padrão `codigoEmpresa_CNPJ_NomeEmpresa...`
+- **THEN** a resolução de senha por `[senhas]` continua funcionando, pois
+  depende apenas do nome completo do arquivo, não de nenhum campo extraído
+  dele

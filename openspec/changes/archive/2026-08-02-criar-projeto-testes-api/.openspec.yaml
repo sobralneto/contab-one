@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-02
+# Mudança de tooling: cria a infraestrutura de testes da API. Nenhum
+# comportamento observável do produto muda — os testes passam a verificar
+# comportamento que já existe, em vez de introduzir requisito novo.
+skip_specs: true
