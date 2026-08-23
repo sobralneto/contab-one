@@ -3,7 +3,56 @@
  * Playwright subir o vite — falha com instrução do que subir, em vez de dar
  * timeout genérico (design.md, Decisão 5).
  */
+import { EXPLICACOES_PAGINA } from '../src/constants/explicacoesPagina'
+
 const API_URL = process.env.VITE_API_URL ?? 'http://localhost:5139'
+
+const CREDENCIAIS_SEED = [
+  { email: 'admin@nfse.local', senha: 'Admin123!' },
+  { email: 'escritorio@nfse.local', senha: 'Admin123!' },
+  { email: 'usuario@nfse.local', senha: 'Admin123!' },
+]
+
+/**
+ * Marca a explicação de todas as páginas como já vista, para os três usuários
+ * do seed.
+ *
+ * Sem isto o E2E não passa em banco novo: o modal de `ExplicacaoPagina` abre
+ * na primeira visita de cada página, é teleportado para o body e intercepta
+ * todo clique — o sintoma é `<div class="modal-overlay"> intercepts pointer
+ * events` em qualquer teste que clique em algo. O tour é comportamento
+ * legítimo do produto; quem tem que se preparar é o teste.
+ *
+ * A lista de páginas sai de EXPLICACOES_PAGINA, e não de um array copiado
+ * aqui: página nova com explicação passa a ser coberta sozinha.
+ */
+async function marcarTourComoVisto(): Promise<void> {
+  const paginas = Object.keys(EXPLICACOES_PAGINA)
+
+  for (const { email, senha } of CREDENCIAIS_SEED) {
+    const respLogin = await fetch(`${API_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: senha }),
+    })
+    if (!respLogin.ok) {
+      throw new Error(
+        `Login de ${email} falhou com ${respLogin.status} ao preparar o tour. ` +
+          'O seed de desenvolvimento rodou?',
+      )
+    }
+    const { accessToken } = (await respLogin.json()) as { accessToken: string }
+
+    // Sequencial de propósito: o rate limiter de /auth é por IP, e disparar
+    // tudo em paralelo transforma a preparação em fonte de flake.
+    for (const pagina of paginas) {
+      await fetch(`${API_URL}/api/tour/${pagina}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+    }
+  }
+}
 
 export default async function globalSetup(): Promise<void> {
   // 1. API responde?
@@ -41,4 +90,14 @@ export default async function globalSetup(): Promise<void> {
         'do launchSettings e o log da API.',
     )
   }
+
+  // 3. Estado dos usuários. O seed é idempotente; os testes o chamam de novo
+  //    por conta própria, mas aqui ele precisa ter rodado ao menos uma vez
+  //    para os logins do passo seguinte existirem.
+  const respSeed = await fetch(`${API_URL}/api/seed/dev`, { method: 'POST' })
+  if (!respSeed.ok) {
+    throw new Error(`POST ${API_URL}/api/seed/dev falhou com ${respSeed.status}.`)
+  }
+
+  await marcarTourComoVisto()
 }

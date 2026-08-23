@@ -31,8 +31,11 @@
             <td class="text-right tabular-nums">{{ e.totalClientes }}</td>
             <td class="text-right tabular-nums">{{ e.totalAgentes }}</td>
             <td class="col-actions">
+              <!-- Classe própria, não `btn-edit`: são duas ações diferentes na
+                   mesma célula, e compartilhar classe torna qualquer seletor
+                   posicional ambíguo (o E2E seleciona o editar por `.btn-edit`). -->
               <button
-                class="btn-edit"
+                class="btn-ferramentas"
                 @click="abrirFerramentas(e)"
                 title="Ferramentas contratadas"
               >
@@ -410,6 +413,9 @@ onMounted(carregar)
   border-radius: var(--radius-lg); padding: 28px;
   max-width: 500px; width: 90%; box-shadow: var(--shadow-lg);
 }
+.btn-ferramentas { background: none; border: 1px solid var(--border); cursor: pointer; font-size: 14px; padding: 6px 8px; border-radius: 6px; line-height: 1; display: inline-flex; align-items: center; transition: all 120ms; }
+.btn-ferramentas:hover { border-color: var(--accent); background: var(--accent-suave); }
+
 .modal-largo { max-width: 640px; }
 .modal-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin: 0 0 16px; }
 .ferramentas-lista { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 46vh; overflow-y: auto; }

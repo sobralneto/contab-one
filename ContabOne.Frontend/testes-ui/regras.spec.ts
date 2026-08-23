@@ -80,6 +80,15 @@ test.describe('Tela de regras — visualizar e editar', () => {
 
     await page.locator('.detalhe-actions button', { hasText: 'Carregar no editor' }).click()
 
+    // O editor já vem pré-preenchido com a versão ativa (RegrasView.carregar),
+    // então carregar por cima SEMPRE pede confirmação — o mesmo modal que o
+    // 5.4 exercita. Sem confirmar aqui, o overlay fica aberto e intercepta os
+    // cliques seguintes.
+    const confirmacaoCarregar = page.locator('.modal-card')
+    await expect(confirmacaoCarregar).toBeVisible()
+    await confirmacaoCarregar.locator('.btn-danger').click()
+    await expect(confirmacaoCarregar).toHaveCount(0)
+
     // JSON carregado no editor — o design especifica que o editor recebe a
     // string crua da API (não formatada); comparar por valor parseado.
     const textarea = page.locator('.json-editor')
