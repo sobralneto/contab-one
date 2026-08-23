@@ -6,7 +6,7 @@ export const useUiStore = defineStore("ui", () => {
   const pageTitle = ref("");
 
   // Dark mode — persisted in localStorage
-  const storedDark = localStorage.getItem("nfse-dark-mode");
+  const storedDark = localStorage.getItem("contabone-dark-mode");
   const darkMode = ref(storedDark === "true");
 
   // Sync to <html> class and localStorage
@@ -14,7 +14,7 @@ export const useUiStore = defineStore("ui", () => {
     darkMode,
     (val) => {
       document.documentElement.classList.toggle("dark", val);
-      localStorage.setItem("nfse-dark-mode", String(val));
+      localStorage.setItem("contabone-dark-mode", String(val));
     },
     { immediate: true },
   );

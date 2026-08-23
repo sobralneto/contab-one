@@ -6,7 +6,7 @@ import type { UsuarioDto, Papel } from '@/api/types'
 // sessionStorage (não localStorage): sobrevive a reload/HMR na mesma aba,
 // mas some ao fechar a aba — o refresh token de longa duração continua
 // sendo o cookie httpOnly, este é só o access token de curta duração.
-const ACCESS_TOKEN_KEY = 'nfse_access_token'
+const ACCESS_TOKEN_KEY = 'contabone_access_token'
 
 function restaurarSessao(): { token: string; usuario: UsuarioDto } | null {
   const token = sessionStorage.getItem(ACCESS_TOKEN_KEY)

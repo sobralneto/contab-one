@@ -8,7 +8,7 @@ vi.mock('@/api/client', () => ({
   refreshAccessToken: vi.fn(),
 }))
 
-const CHAVE = 'nfse_access_token'
+const CHAVE = 'contabone_access_token'
 
 function tokenComPapel(papel: string, exp = 1_800_000_000): string {
   const header = btoa(JSON.stringify({ alg: 'HS256' }))

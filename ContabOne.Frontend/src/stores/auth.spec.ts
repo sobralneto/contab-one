@@ -3,7 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { useAuthStore } from './auth'
 import type { UsuarioDto, Papel } from '@/api/types'
 
-const CHAVE = 'nfse_access_token'
+const CHAVE = 'contabone_access_token'
 
 function tokenValido(exp = 1_800_000_000): string {
   const header = btoa(JSON.stringify({ alg: 'HS256' }))

@@ -214,8 +214,8 @@ public static class AuthEndpoints
     // emite e de quem valida de propósito: quando era opcional com literal de
     // fallback, definir JWT_ISSUER em produção fazia a API emitir com um valor
     // e validar com outro, rejeitando todos os próprios tokens.
-    internal const string IssuerPadrao = "nfse-api";
-    internal const string AudiencePadrao = "nfse-frontend";
+    internal const string IssuerPadrao = "contabone-api";
+    internal const string AudiencePadrao = "contabone-frontend";
 
     private static string Issuer(IConfiguration config) => config["JWT_ISSUER"] ?? IssuerPadrao;
     private static string Audience(IConfiguration config) => config["JWT_AUDIENCE"] ?? AudiencePadrao;
