@@ -56,13 +56,32 @@ public static class AgentesManagementEndpoints
         // para parar de emitir chave nova.
         var produto = req.ProdutoId is Guid pid
             ? await db.Produtos.FirstOrDefaultAsync(p => p.Id == pid)
-            : await db.Produtos.Where(p => p.Ativo)
-                .OrderBy(p => p.Ordem).ThenBy(p => p.Nome).FirstOrDefaultAsync();
+            : await db.EscritorioProdutos
+                .IgnoreQueryFilters()
+                .Where(ep => ep.EscritorioId == escId.Value && ep.DesabilitadoEm == null
+                          && ep.Produto.Ativo)
+                .OrderBy(ep => ep.Produto.Ordem).ThenBy(ep => ep.Produto.Nome)
+                .Select(ep => ep.Produto)
+                .FirstOrDefaultAsync();
 
         if (produto == null)
             return Results.BadRequest(new { erro = "Produto não encontrado" });
         if (!produto.Ativo)
             return Results.BadRequest(new { erro = $"Produto '{produto.Nome}' está inativo" });
+
+        // Emitir chave para ferramenta não contratada geraria um agente que
+        // toma 401 no primeiro handshake — melhor recusar aqui, com motivo.
+        var contratado = await db.EscritorioProdutos
+            .IgnoreQueryFilters() // admin da plataforma cria para outro escritório
+            .AnyAsync(ep => ep.EscritorioId == escId.Value
+                         && ep.ProdutoId == produto.Id
+                         && ep.DesabilitadoEm == null);
+
+        if (!contratado)
+            return Results.BadRequest(new
+            {
+                erro = $"O escritório não tem a ferramenta '{produto.Nome}' habilitada",
+            });
 
         // Check plan limit
         var qtdAtivos = await db.Agentes.IgnoreQueryFilters().CountAsync(a => a.EscritorioId == escId && a.RevogadoEm == null);

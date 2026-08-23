@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using ContabOne.Api.Domain;
 using ContabOne.Api.Infra;
 using ContabOne.Api.Security;
@@ -67,11 +68,49 @@ public static class DataHelpers
         return produto;
     }
 
+    /// <summary>
+    /// Habilita a ferramenta para o escritorio (idempotente). Reabilitar
+    /// reaproveita a linha, como o endpoint de admin faz.
+    /// </summary>
+    public static EscritorioProduto HabilitarProduto(AppDbContext db, Guid escritorioId, Guid produtoId)
+    {
+        var vinculo = db.EscritorioProdutos.IgnoreQueryFilters()
+            .FirstOrDefault(ep => ep.EscritorioId == escritorioId && ep.ProdutoId == produtoId);
+
+        if (vinculo == null)
+        {
+            vinculo = new EscritorioProduto { EscritorioId = escritorioId, ProdutoId = produtoId };
+            db.EscritorioProdutos.Add(vinculo);
+        }
+        else
+        {
+            vinculo.DesabilitadoEm = null;
+        }
+
+        db.SaveChanges();
+        return vinculo;
+    }
+
+    public static void DesabilitarProduto(AppDbContext db, Guid escritorioId, Guid produtoId)
+    {
+        var vinculo = db.EscritorioProdutos.IgnoreQueryFilters()
+            .First(ep => ep.EscritorioId == escritorioId && ep.ProdutoId == produtoId);
+        vinculo.DesabilitadoEm = DateTime.UtcNow;
+        db.SaveChanges();
+    }
+
+    /// <summary>
+    /// Cria o agente E habilita a ferramenta para o escritorio: ter agente de
+    /// um produto implica ter o produto, e sem isso todo teste que so queria
+    /// um agente esbarraria no gate comercial. Quem TESTA o gate desabilita
+    /// explicitamente depois, com DesabilitarProduto.
+    /// </summary>
     public static (Agente agente, string chaveCompleta) CriarAgente(
         AppDbContext db, Guid escritorioId, string nome = "Agente Teste",
         string codigoProduto = "nfse")
     {
         var produto = ObterProduto(db, codigoProduto);
+        HabilitarProduto(db, escritorioId, produto.Id);
         var (chave, prefixo, hash) = ApiKeyHasher.Gerar(produto.Codigo);
         var agente = new Agente
         {

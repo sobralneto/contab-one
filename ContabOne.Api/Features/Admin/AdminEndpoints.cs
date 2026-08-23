@@ -17,6 +17,8 @@ public static class AdminEndpoints
         group.MapGet("/escritorios/{id:guid}", ObterEscritorioAsync);
         group.MapPost("/escritorios", CriarEscritorioAsync);
         group.MapPut("/escritorios/{id:guid}", AtualizarEscritorioAsync);
+        group.MapGet("/escritorios/{id:guid}/produtos", ListarProdutosDoEscritorioAsync);
+        group.MapPut("/escritorios/{id:guid}/produtos", DefinirProdutosDoEscritorioAsync);
 
         // Planos
         group.MapGet("/planos", ListarPlanosAsync);
@@ -39,7 +41,132 @@ public static class AdminEndpoints
         return group;
     }
 
-    // ── Produtos ──
+    // ── Produtos contratados por escritório ──
+
+    /// <summary>
+    /// Catálogo inteiro com o estado de cada ferramenta para este escritório.
+    /// Devolve os inativos também: um produto desativado no catálogo pode
+    /// continuar habilitado para quem já o usa, e esconder isso da tela
+    /// esconderia justamente o caso que o admin precisa enxergar.
+    /// </summary>
+    private static async Task<IResult> ListarProdutosDoEscritorioAsync(
+        Guid id,
+        AppDbContext db)
+    {
+        if (!await db.Escritorios.IgnoreQueryFilters().AnyAsync(e => e.Id == id))
+            return Results.NotFound();
+
+        var vinculos = await db.EscritorioProdutos
+            .IgnoreQueryFilters()
+            .Where(ep => ep.EscritorioId == id)
+            .ToDictionaryAsync(ep => ep.ProdutoId);
+
+        var produtos = await db.Produtos
+            .OrderBy(p => p.Ordem).ThenBy(p => p.Nome)
+            .Select(p => new
+            {
+                p.Id,
+                p.Codigo,
+                p.Nome,
+                p.Descricao,
+                ProdutoAtivo = p.Ativo,
+                TotalAgentes = p.Agentes.Count(a => a.EscritorioId == id && a.RevogadoEm == null),
+            })
+            .ToListAsync();
+
+        var resultado = produtos.Select(p => new
+        {
+            p.Id,
+            p.Codigo,
+            p.Nome,
+            p.Descricao,
+            p.ProdutoAtivo,
+            p.TotalAgentes,
+            Habilitado = vinculos.TryGetValue(p.Id, out var v) && v.DesabilitadoEm == null,
+            HabilitadoEm = vinculos.TryGetValue(p.Id, out var v2) && v2.DesabilitadoEm == null
+                ? v2.HabilitadoEm
+                : (DateTime?)null,
+        });
+
+        return Results.Ok(resultado);
+    }
+
+    /// <summary>
+    /// Define a lista completa de ferramentas habilitadas do escritório.
+    /// Desabilitar NÃO apaga a linha (preserva HabilitadoEm original para
+    /// histórico) e reabilitar reaproveita a mesma linha — a chave é composta,
+    /// então não há duplicata a limpar.
+    /// </summary>
+    private static async Task<IResult> DefinirProdutosDoEscritorioAsync(
+        Guid id,
+        DefinirProdutosRequest req,
+        AppDbContext db,
+        ILoggerFactory loggerFactory)
+    {
+        if (!await db.Escritorios.IgnoreQueryFilters().AnyAsync(e => e.Id == id))
+            return Results.NotFound();
+
+        var pedidos = (req.ProdutoIds ?? []).Distinct().ToList();
+
+        var existem = await db.Produtos.Where(p => pedidos.Contains(p.Id)).Select(p => p.Id).ToListAsync();
+        var inexistentes = pedidos.Except(existem).ToList();
+        if (inexistentes.Count > 0)
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["produtoIds"] = [$"Produto(s) inexistente(s): {string.Join(", ", inexistentes)}"],
+            });
+
+        var atuais = await db.EscritorioProdutos
+            .IgnoreQueryFilters()
+            .Where(ep => ep.EscritorioId == id)
+            .ToListAsync();
+
+        var agora = DateTime.UtcNow;
+        var habilitados = new List<Guid>();
+        var desabilitados = new List<Guid>();
+
+        foreach (var produtoId in pedidos)
+        {
+            var vinculo = atuais.FirstOrDefault(ep => ep.ProdutoId == produtoId);
+            if (vinculo == null)
+            {
+                db.EscritorioProdutos.Add(new EscritorioProduto
+                {
+                    EscritorioId = id,
+                    ProdutoId = produtoId,
+                    HabilitadoEm = agora,
+                });
+                habilitados.Add(produtoId);
+            }
+            else if (vinculo.DesabilitadoEm != null)
+            {
+                vinculo.DesabilitadoEm = null;
+                vinculo.HabilitadoEm = agora;
+                habilitados.Add(produtoId);
+            }
+        }
+
+        foreach (var vinculo in atuais.Where(ep => ep.DesabilitadoEm == null && !pedidos.Contains(ep.ProdutoId)))
+        {
+            vinculo.DesabilitadoEm = agora;
+            desabilitados.Add(vinculo.ProdutoId);
+        }
+
+        await db.SaveChangesAsync();
+
+        // Desabilitar derruba os agentes daquele produto no handshake
+        // seguinte: fica registrado, porque o suporte vai perguntar.
+        if (desabilitados.Count > 0 || habilitados.Count > 0)
+        {
+            loggerFactory.CreateLogger("Admin.Produtos").LogInformation(
+                "Escritorio {EscritorioId}: ferramentas habilitadas {Habilitadas}, desabilitadas {Desabilitadas}",
+                id, habilitados, desabilitados);
+        }
+
+        return Results.Ok(new { habilitados, desabilitados });
+    }
+
+    // ── Produtos (catálogo) ──
 
     private static async Task<IResult> ListarProdutosAsync(AppDbContext db)
     {
@@ -219,8 +346,27 @@ public static class AdminEndpoints
         db.Escritorios.Add(escritorio);
         await db.SaveChangesAsync();
 
+        // Escritório novo nasce com as ferramentas ativas habilitadas, ou
+        // com a lista que o admin mandou. Sem isso ele nasceria sem nenhuma e
+        // não conseguiria gerar chave até alguém lembrar de habilitar — e o
+        // mesmo critério vale no backfill da migration, onde todo escritório
+        // existente recebeu todas as ativas. Restringir é ação deliberada.
+        var produtosIniciais = req.ProdutoIds is { Count: > 0 }
+            ? await db.Produtos.Where(p => req.ProdutoIds.Contains(p.Id)).Select(p => p.Id).ToListAsync()
+            : await db.Produtos.Where(p => p.Ativo).Select(p => p.Id).ToListAsync();
+
+        foreach (var produtoId in produtosIniciais)
+        {
+            db.EscritorioProdutos.Add(new EscritorioProduto
+            {
+                EscritorioId = escritorio.Id,
+                ProdutoId = produtoId,
+            });
+        }
+        await db.SaveChangesAsync();
+
         return Results.Created($"/api/admin/escritorios/{escritorio.Id}",
-            new { escritorio.Id, escritorio.Nome });
+            new { escritorio.Id, escritorio.Nome, ProdutoIds = produtosIniciais });
     }
 
     private static async Task<IResult> AtualizarEscritorioAsync(
@@ -446,6 +592,10 @@ public record CriarEscritorioRequest
     public Guid? PlanoId { get; init; }
     // String em vez de enum: o frontend envia "Ativo"/"Suspenso" (sem JsonStringEnumConverter)
     public string? Status { get; init; }
+    /// <summary>
+    /// Ferramentas habilitadas na criação. Ausente ou vazia = todas as ativas.
+    /// </summary>
+    public List<Guid>? ProdutoIds { get; init; }
 }
 
 public class CriarEscritorioRequestValidator : AbstractValidator<CriarEscritorioRequest>
@@ -553,4 +703,10 @@ public class AtualizarProdutoRequestValidator : AbstractValidator<AtualizarProdu
         RuleFor(x => x.Nome).NotEmpty().MaximumLength(80);
         RuleFor(x => x.Descricao).MaximumLength(200);
     }
+}
+
+public record DefinirProdutosRequest
+{
+    /// <summary>Lista COMPLETA de ferramentas habilitadas. O que não vier é desabilitado.</summary>
+    public List<Guid>? ProdutoIds { get; init; }
 }

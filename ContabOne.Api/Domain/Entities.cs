@@ -22,6 +22,7 @@ public class Escritorio
     public ICollection<Execucao> Execucoes { get; set; } = [];
     public ICollection<ConfiguracaoEscritorio> Configuracoes { get; set; } = [];
     public ICollection<Alerta> Alertas { get; set; } = [];
+    public ICollection<EscritorioProduto> Produtos { get; set; } = [];
 }
 
 public class Plano
@@ -108,6 +109,38 @@ public class Produto
     public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
 
     public ICollection<Agente> Agentes { get; set; } = [];
+    public ICollection<EscritorioProduto> Escritorios { get; set; } = [];
+}
+
+/// <summary>
+/// Quais ferramentas do hub um escritorio contratou. Sem uma linha habilitada
+/// aqui o escritorio nao gera chave para o produto, e os agentes que ele ja
+/// tenha daquele produto param no handshake.
+///
+/// Isso e gate comercial deliberado, da mesma familia de
+/// <see cref="Escritorio.Status"/> — que ja bloqueia o agente no mesmo ponto.
+/// Nao confundir com o catalogo <see cref="Produto"/>, esse sim mantido fora
+/// do caminho de autenticacao de proposito.
+///
+/// Desabilitar e reversivel e preserva historico (<see cref="DesabilitadoEm"/>
+/// em vez de apagar a linha), no mesmo espirito de Agente.RevogadoEm.
+/// </summary>
+public class EscritorioProduto
+{
+    public Guid EscritorioId { get; set; }
+    public Escritorio Escritorio { get; set; } = null!;
+    public Guid ProdutoId { get; set; }
+    public Produto Produto { get; set; } = null!;
+
+    public DateTime HabilitadoEm { get; set; } = DateTime.UtcNow;
+    public DateTime? DesabilitadoEm { get; set; }
+
+    /// <summary>
+    /// Propriedade computada, SEM coluna: nao use em Where/OrderBy — o EF nao
+    /// traduz e lanca em runtime (o mesmo defeito que Agente.Ativo ja causou
+    /// duas vezes). Nas queries escreva `DesabilitadoEm == null`.
+    /// </summary>
+    public bool Habilitado => DesabilitadoEm == null;
 }
 
 /// <summary>

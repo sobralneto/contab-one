@@ -74,6 +74,22 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
         if (agente.Escritorio.Status != StatusEscritorio.Ativo)
             return AuthenticateResult.Fail("Escritório não está ativo");
 
+        // Gate comercial, irmão do Status acima: o escritório precisa ter a
+        // ferramenta contratada. Diferente da conferência de produto logo
+        // acima (que só compara a chave com o próprio agente), este SIM
+        // consulta dado mutável — de propósito, porque é exatamente o que
+        // "descontratou a ferramenta" significa. O handshake é o ponto de
+        // checagem de adimplência do produto inteiro.
+        var contratado = await _db.EscritorioProdutos
+            .IgnoreQueryFilters() // roda antes do TenantContext estar populado
+            .AnyAsync(ep => ep.EscritorioId == agente.EscritorioId
+                         && ep.ProdutoId == agente.ProdutoId
+                         && ep.DesabilitadoEm == null);
+
+        if (!contratado)
+            return AuthenticateResult.Fail(
+                $"Escritório não tem a ferramenta '{agente.Produto.Nome}' habilitada");
+
         // Update last contact
         agente.UltimoContatoEm = DateTime.UtcNow;
         await _db.SaveChangesAsync();

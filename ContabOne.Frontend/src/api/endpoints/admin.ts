@@ -6,6 +6,7 @@ import type {
   PlanoDto,
   ProdutoDto,
   ProdutoAdminDto,
+  EscritorioProdutoDto,
   CriarProdutoRequest,
   AtualizarProdutoRequest,
   RegraDto,
@@ -51,6 +52,28 @@ export async function criarPlano(plano: Omit<PlanoDto, 'id'>): Promise<PlanoDto>
 
 export async function atualizarPlano(id: string, plano: Omit<PlanoDto, 'id'>): Promise<PlanoDto> {
   const { data } = await apiClient.put<PlanoDto>(`/api/admin/planos/${id}`, plano)
+  return data
+}
+
+// ── Ferramentas contratadas por escritório ──
+export async function listarProdutosDoEscritorio(
+  escritorioId: string,
+): Promise<EscritorioProdutoDto[]> {
+  const { data } = await apiClient.get<EscritorioProdutoDto[]>(
+    `/api/admin/escritorios/${escritorioId}/produtos`,
+  )
+  return data
+}
+
+// Lista COMPLETA de habilitadas: o que não vier é desabilitado.
+export async function definirProdutosDoEscritorio(
+  escritorioId: string,
+  produtoIds: string[],
+): Promise<{ habilitados: string[]; desabilitados: string[] }> {
+  const { data } = await apiClient.put(
+    `/api/admin/escritorios/${escritorioId}/produtos`,
+    { produtoIds },
+  )
   return data
 }
 

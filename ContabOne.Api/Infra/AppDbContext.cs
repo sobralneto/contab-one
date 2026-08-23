@@ -18,6 +18,7 @@ public class AppDbContext : IdentityDbContext<Usuario, IdentityRole<Guid>, Guid>
     public DbSet<Escritorio> Escritorios => Set<Escritorio>();
     public DbSet<Plano> Planos => Set<Plano>();
     public DbSet<Produto> Produtos => Set<Produto>();
+    public DbSet<EscritorioProduto> EscritorioProdutos => Set<EscritorioProduto>();
     public DbSet<Agente> Agentes => Set<Agente>();
     public DbSet<Cliente> Clientes => Set<Cliente>();
     public DbSet<Execucao> Execucoes => Set<Execucao>();
@@ -63,6 +64,9 @@ public class AppDbContext : IdentityDbContext<Usuario, IdentityRole<Guid>, Guid>
         modelBuilder.Entity<Alerta>().HasQueryFilter(a =>
             _tenantContext.VeTodosOsEscritorios || a.EscritorioId == _tenantContext.EscritorioId);
 
+        modelBuilder.Entity<EscritorioProduto>().HasQueryFilter(ep =>
+            _tenantContext.VeTodosOsEscritorios || ep.EscritorioId == _tenantContext.EscritorioId);
+
         // ── Entity configuration ──
 
         modelBuilder.Entity<Escritorio>(e =>
@@ -84,6 +88,18 @@ public class AppDbContext : IdentityDbContext<Usuario, IdentityRole<Guid>, Guid>
             // Catálogo global do hub: sem query filter de tenant de propósito
             // — todo escritório enxerga as mesmas ferramentas.
             e.HasIndex(x => x.Codigo).IsUnique();
+        });
+
+        modelBuilder.Entity<EscritorioProduto>(e =>
+        {
+            // Chave composta: um escritorio tem no maximo uma linha por
+            // produto. Reabilitar limpa DesabilitadoEm em vez de criar linha
+            // nova, entao o historico nao vira duplicata.
+            e.HasKey(x => new { x.EscritorioId, x.ProdutoId });
+            e.HasOne(x => x.Escritorio).WithMany(es => es.Produtos)
+                .HasForeignKey(x => x.EscritorioId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Produto).WithMany(pr => pr.Escritorios)
+                .HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Agente>(e =>

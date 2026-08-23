@@ -179,6 +179,18 @@ export interface ProdutoAdminDto extends ProdutoDto {
   totalAgentes: number
 }
 
+// Estado de uma ferramenta para UM escritório, na tela de admin.
+export interface EscritorioProdutoDto {
+  id: string
+  codigo: string
+  nome: string
+  descricao: string
+  produtoAtivo: boolean
+  totalAgentes: number
+  habilitado: boolean
+  habilitadoEm: string | null
+}
+
 export interface CriarProdutoRequest {
   codigo: string
   nome: string

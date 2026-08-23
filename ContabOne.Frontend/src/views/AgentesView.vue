@@ -73,10 +73,31 @@
             A chave vale para uma ferramenta só — o prefixo dela identifica qual.
           </p>
           <form @submit.prevent="confirmarGerar" class="modal-form">
+            <!-- Escritório primeiro: é ele que determina quais ferramentas
+                 estão contratadas, então a lista abaixo depende desta escolha. -->
+            <div class="form-field" v-if="auth.isPlatformAdmin">
+              <label>Escritório <span class="req">*</span></label>
+              <select
+                name="escritorio"
+                v-model="escritorioSelecionado"
+                required
+                @change="carregarProdutos"
+              >
+                <option :value="null" disabled>Selecione o escritório</option>
+                <option v-for="e in escritorios" :key="e.id" :value="e.id">{{ e.nome }}</option>
+              </select>
+            </div>
             <div class="form-field">
               <label>Ferramenta <span class="req">*</span></label>
-              <select name="produto" v-model="produtoSelecionado" required>
-                <option :value="null" disabled>Selecione a ferramenta</option>
+              <select
+                name="produto"
+                v-model="produtoSelecionado"
+                required
+                :disabled="loadingProdutos || (auth.isPlatformAdmin && !escritorioSelecionado)"
+              >
+                <option :value="null" disabled>
+                  {{ loadingProdutos ? 'Carregando...' : 'Selecione a ferramenta' }}
+                </option>
                 <option v-for="p in produtos" :key="p.id" :value="p.id">
                   {{ p.nome }}{{ p.descricao ? ` — ${p.descricao}` : '' }}
                 </option>
@@ -84,17 +105,13 @@
               <span class="form-hint" v-if="produtoEscolhido">
                 A chave começará com <code>{{ produtoEscolhido.codigo }}_</code>
               </span>
-              <span class="form-hint" v-else-if="!loadingProdutos && produtos.length === 0">
-                Nenhuma ferramenta cadastrada. Um admin da plataforma precisa
-                cadastrá-la em Ferramentas antes de gerar chaves.
+              <span class="form-hint" v-else-if="auth.isPlatformAdmin && !escritorioSelecionado">
+                Escolha o escritório para ver as ferramentas que ele contratou.
               </span>
-            </div>
-            <div class="form-field" v-if="auth.isPlatformAdmin">
-              <label>Escritório <span class="req">*</span></label>
-              <select name="escritorio" v-model="escritorioSelecionado" required>
-                <option :value="null" disabled>Selecione o escritório</option>
-                <option v-for="e in escritorios" :key="e.id" :value="e.id">{{ e.nome }}</option>
-              </select>
+              <span class="form-hint" v-else-if="!loadingProdutos && produtos.length === 0">
+                Nenhuma ferramenta contratada. Habilite uma em Escritórios antes
+                de gerar a chave.
+              </span>
             </div>
             <div class="modal-actions">
               <button type="button" class="btn-secondary" @click="fecharGerarModal">Cancelar</button>
@@ -178,24 +195,35 @@ const produtoEscolhido = computed(() =>
   produtos.value.find((p) => p.id === produtoSelecionado.value) ?? null,
 )
 
+// Ferramentas CONTRATADAS pelo escritório em questão — para o admin isso
+// muda a cada escritório escolhido, então a lista é recarregada, não cacheada.
+async function carregarProdutos() {
+  produtoSelecionado.value = null
+  produtos.value = []
+
+  if (auth.isPlatformAdmin && !escritorioSelecionado.value) return
+
+  loadingProdutos.value = true
+  try {
+    produtos.value = await listarProdutos(escritorioSelecionado.value ?? undefined)
+    if (produtos.value.length === 1) produtoSelecionado.value = produtos.value[0].id
+  } catch { /* interceptor handles */ } finally {
+    loadingProdutos.value = false
+  }
+}
+
 async function abrirGerarChave() {
   gerarModal.value = true
-  // Carrega o catálogo na abertura, não no mount: quem só está conferindo a
-  // lista de agentes não precisa da chamada.
-  if (produtos.value.length === 0) {
-    loadingProdutos.value = true
-    try {
-      produtos.value = await listarProdutos()
-      if (produtos.value.length === 1) produtoSelecionado.value = produtos.value[0].id
-    } catch { /* interceptor handles */ } finally {
-      loadingProdutos.value = false
-    }
-  }
+  // Carrega na abertura, não no mount: quem só está conferindo a lista de
+  // agentes não precisa da chamada.
+  if (!auth.isPlatformAdmin) await carregarProdutos()
 }
 
 function fecharGerarModal() {
   gerarModal.value = false
   escritorioSelecionado.value = null
+  produtoSelecionado.value = null
+  if (auth.isPlatformAdmin) produtos.value = []
 }
 
 async function confirmarGerar() {

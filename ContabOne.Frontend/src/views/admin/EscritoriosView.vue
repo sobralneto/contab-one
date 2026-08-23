@@ -31,6 +31,13 @@
             <td class="text-right tabular-nums">{{ e.totalClientes }}</td>
             <td class="text-right tabular-nums">{{ e.totalAgentes }}</td>
             <td class="col-actions">
+              <button
+                class="btn-edit"
+                @click="abrirFerramentas(e)"
+                title="Ferramentas contratadas"
+              >
+                🧰
+              </button>
               <button class="btn-edit" @click="abrirEditar(e)" title="Editar">✎</button>
             </td>
           </tr>
@@ -83,6 +90,63 @@
       </div>
     </Teleport>
 
+    <!-- Modal: ferramentas contratadas -->
+    <Teleport to="body">
+      <div class="modal-overlay" v-if="ferramentasModal">
+        <div class="modal-card modal-largo">
+          <h2 class="modal-title">Ferramentas de {{ escritorioFerramentas?.nome }}</h2>
+          <p class="modal-desc">
+            Desmarcar uma ferramenta bloqueia os agentes dela no próximo
+            handshake e impede novas chaves. As chaves não são revogadas:
+            remarcar devolve o acesso.
+          </p>
+
+          <div v-if="carregandoFerramentas" class="loading-msg">Carregando...</div>
+
+          <ul class="ferramentas-lista" v-else>
+            <li v-for="f in ferramentas" :key="f.id" class="ferramenta-item">
+              <label class="ferramenta-label">
+                <input type="checkbox" v-model="ferramentasSelecionadas" :value="f.id" />
+                <span class="ferramenta-info">
+                  <span class="ferramenta-nome">
+                    {{ f.nome }}
+                    <code class="codigo">{{ f.codigo }}_</code>
+                    <span class="tag-inativo" v-if="!f.produtoAtivo">catálogo inativo</span>
+                  </span>
+                  <span class="ferramenta-desc">{{ f.descricao || '—' }}</span>
+                </span>
+              </label>
+              <span
+                class="ferramenta-agentes"
+                :class="{ 'aviso-forte': f.totalAgentes > 0 && !ferramentasSelecionadas.includes(f.id) }"
+              >
+                {{ f.totalAgentes }} agente{{ f.totalAgentes === 1 ? '' : 's' }}
+              </span>
+            </li>
+          </ul>
+
+          <p class="aviso-impacto" v-if="agentesQueVaoCair > 0">
+            ⚠ {{ agentesQueVaoCair }} agente{{ agentesQueVaoCair === 1 ? '' : 's' }}
+            deste escritório vai parar de autenticar no próximo handshake.
+          </p>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" @click="ferramentasModal = false">
+              Cancelar
+            </button>
+            <button
+              type="button"
+              class="btn-primary"
+              :disabled="salvandoFerramentas"
+              @click="salvarFerramentas"
+            >
+              {{ salvandoFerramentas ? 'Salvando...' : 'Salvar' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Confirmação de mudança de status -->
     <ConfirmarAcao
       :visible="confirmStatus"
@@ -104,8 +168,15 @@ import {
   criarEscritorio,
   atualizarEscritorio,
   listarPlanos,
+  listarProdutosDoEscritorio,
+  definirProdutosDoEscritorio,
 } from '@/api/endpoints/admin'
-import type { EscritorioDto, PlanoDto, StatusEscritorio } from '@/api/types'
+import type {
+  EscritorioDto,
+  PlanoDto,
+  StatusEscritorio,
+  EscritorioProdutoDto,
+} from '@/api/types'
 import { useInputMask } from '@/composables/useInputMask'
 import { STATUS_ESCRITORIO } from '@/constants/statusEscritorio'
 
@@ -119,6 +190,49 @@ const cnpj = computed({
 const loading = ref(true)
 const escritorios = ref<EscritorioDto[]>([])
 const planos = ref<PlanoDto[]>([])
+
+// ── Ferramentas contratadas ──
+const ferramentasModal = ref(false)
+const escritorioFerramentas = ref<EscritorioDto | null>(null)
+const ferramentas = ref<EscritorioProdutoDto[]>([])
+const ferramentasSelecionadas = ref<string[]>([])
+const carregandoFerramentas = ref(false)
+const salvandoFerramentas = ref(false)
+
+// Quantos agentes ativos caem se este estado for salvo. Desmarcar uma
+// ferramenta com agente em campo é a ação de maior consequência desta tela,
+// então ela é mostrada antes de salvar, não depois.
+const agentesQueVaoCair = computed(() =>
+  ferramentas.value
+    .filter((f) => f.habilitado && !ferramentasSelecionadas.value.includes(f.id))
+    .reduce((total, f) => total + f.totalAgentes, 0),
+)
+
+async function abrirFerramentas(e: EscritorioDto) {
+  escritorioFerramentas.value = e
+  ferramentas.value = []
+  ferramentasSelecionadas.value = []
+  ferramentasModal.value = true
+  carregandoFerramentas.value = true
+  try {
+    ferramentas.value = await listarProdutosDoEscritorio(e.id)
+    ferramentasSelecionadas.value = ferramentas.value.filter((f) => f.habilitado).map((f) => f.id)
+  } catch { /* interceptor handles */ } finally {
+    carregandoFerramentas.value = false
+  }
+}
+
+async function salvarFerramentas() {
+  if (!escritorioFerramentas.value) return
+  salvandoFerramentas.value = true
+  try {
+    await definirProdutosDoEscritorio(escritorioFerramentas.value.id, ferramentasSelecionadas.value)
+    ferramentasModal.value = false
+    carregar()
+  } catch { /* interceptor handles */ } finally {
+    salvandoFerramentas.value = false
+  }
+}
 
 // Modal
 const modalAberto = ref(false)
@@ -296,6 +410,23 @@ onMounted(carregar)
   border-radius: var(--radius-lg); padding: 28px;
   max-width: 500px; width: 90%; box-shadow: var(--shadow-lg);
 }
+.modal-largo { max-width: 640px; }
+.modal-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin: 0 0 16px; }
+.ferramentas-lista { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 46vh; overflow-y: auto; }
+.ferramenta-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: var(--radius-sm); }
+.ferramenta-item:hover { background: var(--surface-page); }
+.ferramenta-label { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; flex: 1; }
+.ferramenta-label input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; margin-top: 2px; flex-shrink: 0; }
+.ferramenta-info { display: flex; flex-direction: column; gap: 2px; }
+.ferramenta-nome { font-size: 14px; font-weight: 500; color: var(--text-primary); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ferramenta-desc { font-size: 12px; color: var(--text-muted); }
+.ferramenta-agentes { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.aviso-forte { color: var(--erro); font-weight: 600; }
+.tag-inativo { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); background: var(--surface-page); border: 1px solid var(--border); padding: 1px 6px; border-radius: 10px; }
+.codigo { font-family: var(--font-mono); font-size: 11px; color: var(--accent); background: var(--accent-suave); padding: 2px 6px; border-radius: 4px; }
+.aviso-impacto { font-size: 13px; color: var(--erro); background: var(--erro-suave); border: 1px solid var(--erro); border-radius: var(--radius-sm); padding: 10px 12px; margin: 0 0 16px; line-height: 1.5; }
+.loading-msg { padding: 24px; text-align: center; color: var(--text-muted); font-size: 14px; }
+
 .modal-title { font-size: 18px; font-weight: 700; margin: 0 0 20px; letter-spacing: -0.01em; }
 .modal-form { display: flex; flex-direction: column; gap: 14px; }
 .form-field { display: flex; flex-direction: column; gap: 4px; }

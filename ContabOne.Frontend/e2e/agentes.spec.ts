@@ -13,15 +13,19 @@ test.describe('Gerar chave de agente', () => {
     await page.goto('/agentes')
     await page.click('text=Gerar nova chave')
 
-    // Escolhe a ferramenta e, como admin, o escritório (ambos required, com
-    // placeholder disabled no de escritório)
+    // Escritorio PRIMEIRO: e ele que determina quais ferramentas estao
+    // contratadas, entao a lista de ferramentas so carrega depois desta escolha.
     await expect(page.locator('.modal-card')).toContainText('Nova chave de agente')
+    await page.locator('.modal-form select[name="escritorio"]').selectOption({ label: nomeEsc })
+
     // O valor da opcao e o id do produto (vem do banco), entao o teste
     // localiza a opcao pelo texto em vez de fixar um id ou a descricao exata.
+    // O escritorio recem-criado nasce com todas as ferramentas ativas.
     const seletorProduto = page.locator('.modal-form select[name="produto"]')
-    const idDet = await seletorProduto.locator('option', { hasText: 'DET' }).first().getAttribute('value')
-    await seletorProduto.selectOption(idDet!)
-    await page.locator('.modal-form select[name="escritorio"]').selectOption({ label: nomeEsc })
+    const opcaoDet = seletorProduto.locator('option', { hasText: 'DET' }).first()
+    await expect(opcaoDet).toBeAttached()
+    await seletorProduto.selectOption((await opcaoDet.getAttribute('value'))!)
+
     await page.click('.modal-form button[type="submit"]')
 
     // Modal da chave: aviso de exibição única + chave completa, com o prefixo

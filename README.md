@@ -120,8 +120,21 @@ Duas regras sustentam isso sem pôr dado mutável no caminho de autenticação:
    chaves que estão nos `config.toml` dos clientes; o endpoint de atualização
    não expõe esse campo, e o banco recusa apagar produto com agente vinculado.
 
-Desativar uma ferramenta só a tira do seletor de chaves novas — agente em campo
-continua autenticando. Para cortar acesso existe revogar a chave do agente.
+Desativar uma ferramenta no catálogo só a tira do seletor de chaves novas —
+agente em campo continua autenticando.
+
+**Ferramentas contratadas por escritório.** `EscritorioProdutos` liga os dois:
+sem vínculo habilitado o escritório não gera chave para a ferramenta, e os
+agentes que ele tenha dela param no handshake. Isso é gate **comercial**
+deliberado, da mesma família de `Escritorio.Status` — e por isso, ao contrário
+do catálogo, ele *sim* consulta dado mutável na autenticação. Gerido em
+**Escritórios** (🧰 na linha), que mostra antes de salvar quantos agentes vão
+cair.
+
+Desabilitar não revoga: a linha guarda `DesabilitadoEm` em vez de sumir, e
+remarcar devolve o acesso com a mesma chave. Escritório novo — e todo
+escritório existente, via backfill da migration — nasce com todas as
+ferramentas ativas habilitadas; restringir é ação deliberada.
 
 ```bash
 docker compose up -d postgres
