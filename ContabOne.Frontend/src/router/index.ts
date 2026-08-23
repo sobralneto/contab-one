@@ -111,6 +111,16 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: '/admin/produtos',
+    name: 'admin-produtos',
+    component: () => import('@/views/admin/ProdutosView.vue'),
+    meta: {
+      layout: 'app',
+      papeis: ['PlatformAdmin'],
+      titulo: 'Ferramentas',
+    },
+  },
+  {
     path: '/admin/regras',
     name: 'admin-regras',
     component: () => import('@/views/admin/RegrasView.vue'),

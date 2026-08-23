@@ -24,7 +24,9 @@ public static class AgentesManagementEndpoints
             {
                 a.Id,
                 a.Nome,
-                Produto = a.Produto.ToString(), // frontend espera string, como Papel e Status
+                a.ProdutoId,
+                ProdutoCodigo = a.Produto.Codigo, // prefixo real da chave, para a máscara na tela
+                ProdutoNome = a.Produto.Nome,
                 a.ApiKeyPrefixo,
                 a.VersaoAgente,
                 a.UltimoContatoEm,
@@ -48,14 +50,19 @@ public static class AgentesManagementEndpoints
         if (escId == null)
             return Results.BadRequest(new { erro = "EscritorioId é obrigatório para admin da plataforma" });
 
-        // Ausente = Nfse: mantém compatível quem já chamava o endpoint sem o
-        // campo, que era a única ferramenta existente. IsDefined junto do
-        // TryParse porque TryParse sozinho aceita a forma numérica ("7") e
-        // devolveria um Produto que não existe.
-        var produto = Produto.Nfse;
-        if (!string.IsNullOrEmpty(req.Produto) &&
-            !(Enum.TryParse(req.Produto, ignoreCase: true, out produto) && Enum.IsDefined(produto)))
-            return Results.BadRequest(new { erro = $"Produto inválido: {req.Produto}" });
+        // Produto ausente = o primeiro ativo do catálogo, que mantém
+        // compatível quem já chamava o endpoint sem o campo (havia uma
+        // ferramenta só). Inativo é recusado: desativar existe justamente
+        // para parar de emitir chave nova.
+        var produto = req.ProdutoId is Guid pid
+            ? await db.Produtos.FirstOrDefaultAsync(p => p.Id == pid)
+            : await db.Produtos.Where(p => p.Ativo)
+                .OrderBy(p => p.Ordem).ThenBy(p => p.Nome).FirstOrDefaultAsync();
+
+        if (produto == null)
+            return Results.BadRequest(new { erro = "Produto não encontrado" });
+        if (!produto.Ativo)
+            return Results.BadRequest(new { erro = $"Produto '{produto.Nome}' está inativo" });
 
         // Check plan limit
         var qtdAtivos = await db.Agentes.IgnoreQueryFilters().CountAsync(a => a.EscritorioId == escId && a.RevogadoEm == null);
@@ -68,13 +75,13 @@ public static class AgentesManagementEndpoints
         if (plano != null && qtdAtivos >= plano.MaxAgentes)
             return Results.BadRequest(new { erro = "Limite de agentes do plano atingido" });
 
-        var (chaveCompleta, prefixo, hash) = ApiKeyHasher.Gerar(produto);
+        var (chaveCompleta, prefixo, hash) = ApiKeyHasher.Gerar(produto.Codigo);
 
         var agente = new Agente
         {
             EscritorioId = escId.Value,
             Nome = req.Nome,
-            Produto = produto,
+            ProdutoId = produto.Id,
             ApiKeyHash = hash,
             ApiKeyPrefixo = prefixo,
         };
@@ -87,7 +94,9 @@ public static class AgentesManagementEndpoints
         {
             agente.Id,
             agente.Nome,
-            Produto = produto.ToString(),
+            ProdutoId = produto.Id,
+            ProdutoCodigo = produto.Codigo,
+            ProdutoNome = produto.Nome,
             ApiKey = chaveCompleta, // exibida uma única vez (§7)
             Aviso = "Guarde esta chave agora. Ela não será exibida novamente.",
         });
@@ -115,7 +124,7 @@ public record CriarAgenteRequest
     public Guid? EscritorioId { get; init; } // only for PlatformAdmin
 
     /// <summary>
-    /// Nome do valor de <see cref="Produto"/> ("Nfse", "Det"). Ausente = Nfse.
+    /// Ferramenta do hub. Ausente = o primeiro produto ativo do catálogo.
     /// </summary>
-    public string? Produto { get; init; }
+    public Guid? ProdutoId { get; init; }
 }

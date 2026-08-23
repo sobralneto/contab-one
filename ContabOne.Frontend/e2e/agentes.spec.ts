@@ -16,7 +16,11 @@ test.describe('Gerar chave de agente', () => {
     // Escolhe a ferramenta e, como admin, o escritório (ambos required, com
     // placeholder disabled no de escritório)
     await expect(page.locator('.modal-card')).toContainText('Nova chave de agente')
-    await page.locator('.modal-form select[name="produto"]').selectOption('Det')
+    // O valor da opcao e o id do produto (vem do banco), entao o teste
+    // localiza a opcao pelo texto em vez de fixar um id ou a descricao exata.
+    const seletorProduto = page.locator('.modal-form select[name="produto"]')
+    const idDet = await seletorProduto.locator('option', { hasText: 'DET' }).first().getAttribute('value')
+    await seletorProduto.selectOption(idDet!)
     await page.locator('.modal-form select[name="escritorio"]').selectOption({ label: nomeEsc })
     await page.click('.modal-form button[type="submit"]')
 

@@ -36,15 +36,13 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
 
         var apiKey = header.ToString();
 
-        string prefixo, hash;
-        Produto produtoDaChave;
+        string prefixo, hash, codigoProdutoDaChave;
         try
         {
             prefixo = ApiKeyHasher.ExtrairPrefixo(apiKey);
             hash = ApiKeyHasher.HashApiKey(apiKey);
-            if (string.IsNullOrEmpty(prefixo))
-                return AuthenticateResult.Fail("Formato de API key inválido");
-            if (!ApiKeyHasher.TentarExtrairProduto(apiKey, out produtoDaChave))
+            codigoProdutoDaChave = ApiKeyHasher.ExtrairCodigoProduto(apiKey);
+            if (string.IsNullOrEmpty(prefixo) || string.IsNullOrEmpty(codigoProdutoDaChave))
                 return AuthenticateResult.Fail("Formato de API key inválido");
         }
         catch
@@ -55,6 +53,7 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
         var agente = await _db.Agentes
             .IgnoreQueryFilters() // agent lookup must cross tenants
             .Include(a => a.Escritorio)
+            .Include(a => a.Produto)
             .FirstOrDefaultAsync(a => a.ApiKeyPrefixo == prefixo && a.ApiKeyHash == hash);
 
         if (agente == null)
@@ -63,12 +62,13 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
         if (!agente.Ativo)
             return AuthenticateResult.Fail("API key revogada");
 
-        // O produto declarado pela chave tem que bater com o gravado no
-        // agente. Com prefixo8 aleatório a divergência é praticamente
-        // inalcançável por acaso — o que este guarda tranca é a chave de uma
-        // ferramenta valendo como se fosse de outra caso a linha seja
-        // adulterada ou migrada errado.
-        if (agente.Produto != produtoDaChave)
+        // O produto declarado pela chave tem que bater com o do agente. A
+        // comparação é contra o Produto do PRÓPRIO agente (veio no mesmo
+        // JOIN), nunca contra o catálogo: assim nenhuma alteração na tabela
+        // `Produtos` pode abrir ou fechar autenticação de quem já está em
+        // campo. Produto inativo continua autenticando de propósito —
+        // desativar só tira o produto da oferta de novas chaves.
+        if (!string.Equals(agente.Produto.Codigo, codigoProdutoDaChave, StringComparison.Ordinal))
             return AuthenticateResult.Fail("API key inválida");
 
         if (agente.Escritorio.Status != StatusEscritorio.Ativo)
@@ -86,7 +86,7 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
             new Claim(ClaimTypes.NameIdentifier, agente.Id.ToString()),
             new Claim("escritorio_id", agente.EscritorioId.ToString()),
             new Claim("agente_id", agente.Id.ToString()),
-            new Claim("produto", agente.Produto.ToString()),
+            new Claim("produto", agente.Produto.Codigo),
             new Claim(ClaimTypes.Role, "Agente"),
         };
 

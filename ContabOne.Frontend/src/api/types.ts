@@ -160,16 +160,49 @@ export interface PlanoLimites {
   maxAgentes: number
 }
 
+// ── Produtos (ferramentas do hub) ──
+
+// Catálogo vindo do banco, não de uma lista fixa no front. `codigo` é o
+// primeiro campo da chave de API do produto (`nfse_…`, `det_…`).
+export interface ProdutoDto {
+  id: string
+  codigo: string
+  nome: string
+  descricao: string
+  ativo: boolean
+  ordem: number
+}
+
+// A visão do admin traz também o que só interessa ao cadastro.
+export interface ProdutoAdminDto extends ProdutoDto {
+  criadoEm: string
+  totalAgentes: number
+}
+
+export interface CriarProdutoRequest {
+  codigo: string
+  nome: string
+  descricao?: string
+  ativo?: boolean
+  ordem?: number
+}
+
+// Sem `codigo`: ele é imutável depois de criado — já foi impresso nas chaves
+// que estão nos config.toml dos clientes.
+export interface AtualizarProdutoRequest {
+  nome: string
+  descricao?: string
+  ativo?: boolean
+  ordem?: number
+}
+
 // ── Agentes ──
-
-// Ferramenta do hub que a chave habilita. A API serializa como string, e o
-// nome em minúsculas é o prefixo da própria chave (`nfse_…`, `det_…`).
-export type Produto = 'Nfse' | 'Det'
-
 export interface AgenteDto {
   id: string
   nome: string
-  produto: Produto
+  produtoId: string
+  produtoCodigo: string
+  produtoNome: string
   apiKeyPrefixo: string
   versaoAgente: string | null
   ultimoContatoEm: string | null
@@ -181,14 +214,16 @@ export interface AgenteDto {
 
 export interface CriarAgenteRequest {
   nome: string
-  produto: Produto
+  produtoId: string
   escritorioId?: string
 }
 
 export interface CriarAgenteResponse {
   id: string
   nome: string
-  produto: Produto
+  produtoId: string
+  produtoCodigo: string
+  produtoNome: string
   apiKey: string
   aviso: string
 }

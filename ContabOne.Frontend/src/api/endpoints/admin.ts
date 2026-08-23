@@ -4,6 +4,10 @@ import type {
   CriarEscritorioRequest,
   AtualizarEscritorioRequest,
   PlanoDto,
+  ProdutoDto,
+  ProdutoAdminDto,
+  CriarProdutoRequest,
+  AtualizarProdutoRequest,
   RegraDto,
   RegraDetalheDto,
   PublicarRegraRequest,
@@ -47,6 +51,27 @@ export async function criarPlano(plano: Omit<PlanoDto, 'id'>): Promise<PlanoDto>
 
 export async function atualizarPlano(id: string, plano: Omit<PlanoDto, 'id'>): Promise<PlanoDto> {
   const { data } = await apiClient.put<PlanoDto>(`/api/admin/planos/${id}`, plano)
+  return data
+}
+
+// ── Produtos (ferramentas do hub) ──
+export async function listarProdutosAdmin(): Promise<ProdutoAdminDto[]> {
+  const { data } = await apiClient.get<ProdutoAdminDto[]>('/api/admin/produtos')
+  return data
+}
+
+export async function criarProduto(
+  req: CriarProdutoRequest,
+): Promise<{ id: string; codigo: string; nome: string }> {
+  const { data } = await apiClient.post('/api/admin/produtos', req)
+  return data
+}
+
+export async function atualizarProduto(
+  id: string,
+  req: AtualizarProdutoRequest,
+): Promise<ProdutoDto> {
+  const { data } = await apiClient.put<ProdutoDto>(`/api/admin/produtos/${id}`, req)
   return data
 }
 

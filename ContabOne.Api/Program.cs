@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ContabOne.Api.Domain;
 using ContabOne.Api.Features.Admin;
+using ContabOne.Api.Features.Produtos;
 using ContabOne.Api.Features.Agent;
 using ContabOne.Api.Features.Alertas;
 using ContabOne.Api.Features.Auth;
@@ -323,6 +324,10 @@ try
        .RequireAuthorization("EscritorioAdmin");
 
     // ── Admin endpoints ──
+    app.MapGroup("/api/produtos")
+       .MapProdutosEndpoints()
+       .RequireAuthorization("EscritorioUsuario");
+
     app.MapGroup("/api/admin")
        .MapAdminEndpoints()
        .RequireAuthorization("PlatformAdmin");

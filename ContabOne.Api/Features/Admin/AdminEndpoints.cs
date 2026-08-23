@@ -23,6 +23,11 @@ public static class AdminEndpoints
         group.MapPost("/planos", CriarPlanoAsync);
         group.MapPut("/planos/{id:guid}", AtualizarPlanoAsync);
 
+        // Produtos (ferramentas do hub)
+        group.MapGet("/produtos", ListarProdutosAsync);
+        group.MapPost("/produtos", CriarProdutoAsync);
+        group.MapPut("/produtos/{id:guid}", AtualizarProdutoAsync);
+
         // Regras
         group.MapGet("/regras", ListarRegrasAsync);
         group.MapGet("/regras/{id:guid}", ObterRegraAsync);
@@ -32,6 +37,104 @@ public static class AdminEndpoints
         group.MapGet("/visao-geral", VisaoGeralAsync);
 
         return group;
+    }
+
+    // ── Produtos ──
+
+    private static async Task<IResult> ListarProdutosAsync(AppDbContext db)
+    {
+        // Inclui inativos (ao contrário de /api/produtos): esta é a tela de
+        // cadastro, onde reativar um produto precisa ser possível.
+        var produtos = await db.Produtos
+            .OrderBy(p => p.Ordem).ThenBy(p => p.Nome)
+            .Select(p => new
+            {
+                p.Id,
+                p.Codigo,
+                p.Nome,
+                p.Descricao,
+                p.Ativo,
+                p.Ordem,
+                p.CriadoEm,
+                TotalAgentes = p.Agentes.Count(a => a.RevogadoEm == null),
+            })
+            .ToListAsync();
+
+        return Results.Ok(produtos);
+    }
+
+    private static async Task<IResult> CriarProdutoAsync(
+        CriarProdutoRequest req,
+        IValidator<CriarProdutoRequest> validator,
+        AppDbContext db)
+    {
+        var validation = await validator.ValidateAsync(req);
+        if (!validation.IsValid)
+            return Results.ValidationProblem(validation.ToDictionary());
+
+        var codigo = req.Codigo.Trim().ToLowerInvariant();
+
+        if (await db.Produtos.AnyAsync(p => p.Codigo == codigo))
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["codigo"] = [$"Já existe um produto com o código '{codigo}'"],
+            });
+
+        var produto = new Produto
+        {
+            Codigo = codigo,
+            Nome = req.Nome.Trim(),
+            Descricao = req.Descricao?.Trim() ?? string.Empty,
+            Ativo = req.Ativo ?? true,
+            Ordem = req.Ordem ?? 0,
+        };
+
+        db.Produtos.Add(produto);
+        await db.SaveChangesAsync();
+
+        return Results.Created($"/api/admin/produtos/{produto.Id}", new
+        {
+            produto.Id,
+            produto.Codigo,
+            produto.Nome,
+        });
+    }
+
+    /// <summary>
+    /// Atualiza só o que é apresentação. O `Codigo` NÃO entra: ele já foi
+    /// impresso nas chaves que estão nos config.toml dos clientes, e trocá-lo
+    /// derrubaria todos os agentes do produto no handshake seguinte.
+    /// </summary>
+    private static async Task<IResult> AtualizarProdutoAsync(
+        Guid id,
+        AtualizarProdutoRequest req,
+        IValidator<AtualizarProdutoRequest> validator,
+        AppDbContext db)
+    {
+        var validation = await validator.ValidateAsync(req);
+        if (!validation.IsValid)
+            return Results.ValidationProblem(validation.ToDictionary());
+
+        var produto = await db.Produtos.FindAsync(id);
+        if (produto == null)
+            return Results.NotFound();
+
+        produto.Nome = req.Nome.Trim();
+        produto.Descricao = req.Descricao?.Trim() ?? string.Empty;
+        if (req.Ativo.HasValue) produto.Ativo = req.Ativo.Value;
+        if (req.Ordem.HasValue) produto.Ordem = req.Ordem.Value;
+
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new
+        {
+            produto.Id,
+            produto.Codigo,
+            produto.Nome,
+            produto.Descricao,
+            produto.Ativo,
+            produto.Ordem,
+        });
     }
 
     // ── Escritórios ──
@@ -410,3 +513,44 @@ public record RegraDetalheDto(
     bool Ativa,
     int TamanhoConteudo,
     string Conteudo);
+
+public record CriarProdutoRequest
+{
+    /// <summary>Prefixo da chave de API. Imutável depois de criado.</summary>
+    public string Codigo { get; init; } = string.Empty;
+    public string Nome { get; init; } = string.Empty;
+    public string? Descricao { get; init; }
+    public bool? Ativo { get; init; }
+    public int? Ordem { get; init; }
+}
+
+public record AtualizarProdutoRequest
+{
+    public string Nome { get; init; } = string.Empty;
+    public string? Descricao { get; init; }
+    public bool? Ativo { get; init; }
+    public int? Ordem { get; init; }
+}
+
+public class CriarProdutoRequestValidator : AbstractValidator<CriarProdutoRequest>
+{
+    public CriarProdutoRequestValidator()
+    {
+        RuleFor(x => x.Codigo)
+            .NotEmpty().WithMessage("Código é obrigatório")
+            .Must(c => ProdutoCodigo.Valido(c?.Trim().ToLowerInvariant()))
+            .WithMessage("Código deve ter de 2 a 20 caracteres, só letras minúsculas e dígitos — "
+                       + "sem '_', que é o separador da chave de API");
+        RuleFor(x => x.Nome).NotEmpty().MaximumLength(80);
+        RuleFor(x => x.Descricao).MaximumLength(200);
+    }
+}
+
+public class AtualizarProdutoRequestValidator : AbstractValidator<AtualizarProdutoRequest>
+{
+    public AtualizarProdutoRequestValidator()
+    {
+        RuleFor(x => x.Nome).NotEmpty().MaximumLength(80);
+        RuleFor(x => x.Descricao).MaximumLength(200);
+    }
+}

@@ -43,16 +43,41 @@ public static class DataHelpers
         return esc;
     }
 
+    /// <summary>
+    /// Produto do catalogo semeado pela migration ProdutosComoTabela
+    /// ("nfse", "det"). Os testes usam o seed em vez de criar produto proprio:
+    /// o indice unico de Codigo e global e o container e compartilhado pela
+    /// colecao inteira.
+    /// </summary>
+    public static Produto ObterProduto(AppDbContext db, string codigo = "nfse")
+        => db.Produtos.First(p => p.Codigo == codigo);
+
+    public static Produto CriarProduto(AppDbContext db, string codigo,
+        string nome = "Produto Teste", bool ativo = true)
+    {
+        var produto = new Produto
+        {
+            Codigo = codigo,
+            Nome = nome,
+            Descricao = "Produto de teste " + codigo,
+            Ativo = ativo,
+        };
+        db.Produtos.Add(produto);
+        db.SaveChanges();
+        return produto;
+    }
+
     public static (Agente agente, string chaveCompleta) CriarAgente(
         AppDbContext db, Guid escritorioId, string nome = "Agente Teste",
-        Produto produto = Produto.Nfse)
+        string codigoProduto = "nfse")
     {
-        var (chave, prefixo, hash) = ApiKeyHasher.Gerar(produto);
+        var produto = ObterProduto(db, codigoProduto);
+        var (chave, prefixo, hash) = ApiKeyHasher.Gerar(produto.Codigo);
         var agente = new Agente
         {
             EscritorioId = escritorioId,
             Nome = nome,
-            Produto = produto,
+            ProdutoId = produto.Id,
             ApiKeyHash = hash,
             ApiKeyPrefixo = prefixo,
         };

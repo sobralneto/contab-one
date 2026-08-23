@@ -16,54 +16,63 @@ public class HashersTest
     // ── ApiKeyHasher ──
 
     [Theory]
-    [InlineData(Produto.Nfse, "nfse")]
-    [InlineData(Produto.Det, "det")]
-    public void Gerar_ProduzChaveNoFormatoEsperado_EHashCorresponde(Produto produto, string prefixoProduto)
+    [InlineData("nfse")]
+    [InlineData("det")]
+    public void Gerar_ProduzChaveNoFormatoEsperado_EHashCorresponde(string codigoProduto)
     {
-        var (chave, prefixo, hash) = ApiKeyHasher.Gerar(produto);
+        var (chave, prefixo, hash) = ApiKeyHasher.Gerar(codigoProduto);
 
-        Assert.Matches($"^{prefixoProduto}_[0-9a-f]{{8}}_[0-9a-f]{{32}}$", chave);
+        Assert.Matches($"^{codigoProduto}_[0-9a-f]{{8}}_[0-9a-f]{{32}}$", chave);
         Assert.Equal(8, prefixo.Length);
         Assert.Equal(hash, ApiKeyHasher.HashApiKey(chave));
         Assert.Equal(prefixo, ApiKeyHasher.ExtrairPrefixo(chave));
-
-        Assert.True(ApiKeyHasher.TentarExtrairProduto(chave, out var lido));
-        Assert.Equal(produto, lido);
+        Assert.Equal(codigoProduto, ApiKeyHasher.ExtrairCodigoProduto(chave));
     }
 
     /// <summary>
-    /// Todo produto do enum tem que render um prefixo utilizável: sem `_`
-    /// (o parser separa por `_` e exige exatamente 3 campos) e sem colidir
-    /// com outro produto. Este teste é o portão que faz a lista de prefixos
-    /// poder ser derivada do enum em vez de mantida à mão.
+    /// O formato da chave NAO consulta o catalogo de produtos: catalogo e
+    /// dado mutavel e nao pode estar no caminho de autenticacao. Um codigo
+    /// inexistente produz chave estruturalmente valida; quem a recusa e o
+    /// handler, comparando com o produto do agente encontrado (ver
+    /// ProdutoApiKeyTest).
     /// </summary>
     [Fact]
-    public void TodoProduto_TemPrefixoUsavelEUnico()
+    public void HashApiKey_NaoValidaCodigoContraCatalogo()
     {
-        var prefixos = Enum.GetValues<Produto>().Select(ApiKeyHasher.PrefixoDe).ToList();
+        var chave = ApiKeyHasher.Gerar("produtoquenaoexiste").chaveCompleta;
 
-        Assert.All(prefixos, p =>
-        {
-            Assert.NotEmpty(p);
-            Assert.DoesNotContain('_', p);
-        });
-        Assert.Equal(prefixos.Count, prefixos.Distinct().Count());
+        Assert.Equal("produtoquenaoexiste", ApiKeyHasher.ExtrairCodigoProduto(chave));
+        Assert.Null(Record.Exception(() => ApiKeyHasher.HashApiKey(chave)));
     }
 
     [Theory]
     [InlineData("sem-separador")]
     [InlineData("nfse_abcdefgh")]
     [InlineData("nfse_abcdefgh_segredo_curto")]
-    [InlineData("outro_abcdefgh_0123456789abcdef0123456789abcdef")]
-    // Forma numérica do enum: Enum.TryParse com ignoreCase aceitaria "0" como
-    // Produto.Nfse. O parser compara o prefixo textual, então tem que recusar.
-    [InlineData("0_abcdefgh_0123456789abcdef0123456789abcdef")]
-    [InlineData("NFSE_abcdefgh_0123456789abcdef0123456789abcdef")]
+    [InlineData("_abcdefgh_0123456789abcdef0123456789abcdef")] // codigo vazio
     public void HashApiKey_RejeitaFormatosInvalidos(string chave)
     {
         Assert.Throws<ArgumentException>(() => ApiKeyHasher.HashApiKey(chave));
-        Assert.False(ApiKeyHasher.TentarExtrairProduto(chave, out _));
     }
+
+    // -- ProdutoCodigo: a regra que o cadastro de produto tem que impor --
+
+    [Theory]
+    [InlineData("nfse")]
+    [InlineData("det")]
+    [InlineData("sped2")]
+    public void CodigoDeProduto_AceitaMinusculasEDigitos(string codigo)
+        => Assert.True(ProdutoCodigo.Valido(codigo));
+
+    [Theory]
+    [InlineData("")]           // vazio
+    [InlineData("a")]          // curto demais
+    [InlineData("NFSE")]       // caixa alta: a comparacao no handler e ordinal
+    [InlineData("contab_one")] // `_` e o separador da chave
+    [InlineData("nfs-e")]      // hifen fora do alfabeto permitido
+    [InlineData("nfse ")]      // espaco
+    public void CodigoDeProduto_RecusaOQueQuebrariaAChave(string codigo)
+        => Assert.False(ProdutoCodigo.Valido(codigo));
 
     // ── CnpjHasher.Mascarar ──
 

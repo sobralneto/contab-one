@@ -103,7 +103,9 @@ public class TraducaoLinqTest
             {
                 a.Id,
                 a.Nome,
-                Produto = a.Produto.ToString(),
+                a.ProdutoId,
+                ProdutoCodigo = a.Produto.Codigo,
+                ProdutoNome = a.Produto.Nome,
                 a.ApiKeyPrefixo,
                 a.VersaoAgente,
                 a.UltimoContatoEm,
@@ -116,7 +118,7 @@ public class TraducaoLinqTest
             .ToQueryString();
 
         Assert.Contains("RevogadoEm", sql);
-        Assert.Contains("Produto", sql);
+        Assert.Contains("Produtos", sql); // o JOIN com o catalogo
     }
 
     [Fact]

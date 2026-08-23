@@ -29,12 +29,10 @@
           <tr v-for="a in agentes" :key="a.id">
             <td class="col-nome">{{ a.nome }}</td>
             <td class="col-produto">
-              <span class="produto-chip" :title="infoProduto(a.produto).descricao">
-                {{ infoProduto(a.produto).label }}
-              </span>
+              <span class="produto-chip">{{ a.produtoNome }}</span>
             </td>
             <td v-if="auth.isPlatformAdmin" class="col-escritorio">{{ a.escritorioNome || '—' }}</td>
-            <td class="col-chave"><code>{{ infoProduto(a.produto).prefixo }}_{{ a.apiKeyPrefixo }}_…</code></td>
+            <td class="col-chave"><code>{{ a.produtoCodigo }}_{{ a.apiKeyPrefixo }}_…</code></td>
             <td class="col-versao">{{ a.versaoAgente || '—' }}</td>
             <td class="col-criado">{{ formatDate(a.criadoEm) }}</td>
             <td class="col-contato">{{ a.ultimoContatoEm ? formatRelativeTime(a.ultimoContatoEm) : 'Nunca' }}</td>
@@ -78,12 +76,17 @@
             <div class="form-field">
               <label>Ferramenta <span class="req">*</span></label>
               <select name="produto" v-model="produtoSelecionado" required>
-                <option v-for="p in PRODUTOS" :key="p" :value="p">
-                  {{ PRODUTO[p].label }} — {{ PRODUTO[p].descricao }}
+                <option :value="null" disabled>Selecione a ferramenta</option>
+                <option v-for="p in produtos" :key="p.id" :value="p.id">
+                  {{ p.nome }}{{ p.descricao ? ` — ${p.descricao}` : '' }}
                 </option>
               </select>
-              <span class="form-hint">
-                A chave começará com <code>{{ PRODUTO[produtoSelecionado].prefixo }}_</code>
+              <span class="form-hint" v-if="produtoEscolhido">
+                A chave começará com <code>{{ produtoEscolhido.codigo }}_</code>
+              </span>
+              <span class="form-hint" v-else-if="!loadingProdutos && produtos.length === 0">
+                Nenhuma ferramenta cadastrada. Um admin da plataforma precisa
+                cadastrá-la em Ferramentas antes de gerar chaves.
               </span>
             </div>
             <div class="form-field" v-if="auth.isPlatformAdmin">
@@ -139,13 +142,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import EstadoVazio from '@/components/comum/EstadoVazio.vue'
 import ConfirmarAcao from '@/components/comum/ConfirmarAcao.vue'
 import { listarAgentes, criarAgente, revogarAgente } from '@/api/endpoints/agentes'
 import { listarEscritorios } from '@/api/endpoints/admin'
-import type { AgenteDto, EscritorioDto, Produto } from '@/api/types'
-import { PRODUTO, PRODUTOS } from '@/constants/produto'
+import type { AgenteDto, EscritorioDto, ProdutoDto } from '@/api/types'
+import { listarProdutos } from '@/api/endpoints/produtos'
 import { useFormatters } from '@/composables/useFormatters'
 import { useAuthStore } from '@/stores/auth'
 
@@ -157,24 +160,37 @@ const loading = ref(true)
 const agentes = ref<AgenteDto[]>([])
 const escritorios = ref<EscritorioDto[]>([])
 
+// Catálogo de ferramentas: vem do banco via API, não de lista fixa no front.
+const produtos = ref<ProdutoDto[]>([])
+const loadingProdutos = ref(false)
+
 const chaveModal = ref(false)
 const novaChave = ref('')
 const copiado = ref(false)
 
 // Escolha da ferramenta (todos) e do escritório (só admin) antes de gerar
 const gerarModal = ref(false)
-const produtoSelecionado = ref<Produto>('Nfse')
+const produtoSelecionado = ref<string | null>(null)
 const escritorioSelecionado = ref<string | null>(null)
 const gerandoChave = ref(false)
 
-// Rótulo com degradação suave: se a API passar a devolver um produto que este
-// build ainda não conhece, a linha mostra o valor cru em vez de quebrar.
-function infoProduto(p: Produto) {
-  return PRODUTO[p] ?? { label: p, descricao: '', prefixo: String(p ?? '').toLowerCase() }
-}
+const produtoEscolhido = computed(() =>
+  produtos.value.find((p) => p.id === produtoSelecionado.value) ?? null,
+)
 
-function abrirGerarChave() {
+async function abrirGerarChave() {
   gerarModal.value = true
+  // Carrega o catálogo na abertura, não no mount: quem só está conferindo a
+  // lista de agentes não precisa da chamada.
+  if (produtos.value.length === 0) {
+    loadingProdutos.value = true
+    try {
+      produtos.value = await listarProdutos()
+      if (produtos.value.length === 1) produtoSelecionado.value = produtos.value[0].id
+    } catch { /* interceptor handles */ } finally {
+      loadingProdutos.value = false
+    }
+  }
 }
 
 function fecharGerarModal() {
@@ -187,11 +203,13 @@ async function confirmarGerar() {
 }
 
 async function gerarChave(escritorioId?: string) {
+  const produto = produtoEscolhido.value
+  if (!produto) return
+
   gerandoChave.value = true
   try {
-    const produto = produtoSelecionado.value
-    const nome = `Agente ${PRODUTO[produto].label} ${new Date().toLocaleDateString('pt-BR')}`
-    const res = await criarAgente({ nome, produto, escritorioId })
+    const nome = `Agente ${produto.nome} ${new Date().toLocaleDateString('pt-BR')}`
+    const res = await criarAgente({ nome, produtoId: produto.id, escritorioId })
     novaChave.value = res.apiKey
     copiado.value = false
     gerarModal.value = false

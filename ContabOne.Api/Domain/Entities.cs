@@ -72,6 +72,60 @@ public class TourPaginaVista
 
 // ── Agent ──
 
+/// <summary>
+/// Ferramenta do hub (coleta de NFS-e, DET, …). Cada agente em campo pertence
+/// a exatamente uma, e a chave de API dele começa pelo <see cref="Codigo"/>
+/// deste produto.
+///
+/// O catálogo é dado, não código: cadastrar um produto aqui não exige deploy.
+/// O que o cadastro NÃO faz é criar a ferramenta — binário do agente,
+/// endpoints e bloco de configuração do handshake continuam sendo código.
+/// </summary>
+public class Produto
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    /// <summary>
+    /// Primeiro campo da chave de API (`nfse_a1b2c3d4_…`). **Imutável depois
+    /// de criado**: ele já foi impresso nas chaves que estão nos config.toml
+    /// dos clientes, e o handler compara a chave apresentada contra ele.
+    /// Trocá-lo derruba todos os agentes deste produto de uma vez — por isso
+    /// o endpoint de atualização não expõe este campo.
+    /// </summary>
+    public string Codigo { get; set; } = string.Empty;
+
+    public string Nome { get; set; } = string.Empty;
+    public string Descricao { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Controla apenas a OFERTA de novas chaves. Agente já em campo com um
+    /// produto inativo continua autenticando: desativar é decisão comercial,
+    /// não revogação — para cortar acesso existe revogar a chave do agente.
+    /// </summary>
+    public bool Ativo { get; set; } = true;
+
+    public int Ordem { get; set; }
+    public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+
+    public ICollection<Agente> Agentes { get; set; } = [];
+}
+
+/// <summary>
+/// Regra do <see cref="Produto.Codigo"/>. Vive fora da entidade porque tanto o
+/// validador do endpoint quanto os testes precisam dela.
+/// </summary>
+public static class ProdutoCodigo
+{
+    // Sem `_`: o parser da chave separa por `_` e exige exatamente 3 campos,
+    // então um código com underscore produziria chave impossível de validar.
+    // Só minúsculas: a comparação no handler é ordinal, sem ignorar caixa.
+    private static readonly System.Text.RegularExpressions.Regex Padrao =
+        new("^[a-z0-9]{2,20}$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    public static bool Valido(string? codigo)
+        => !string.IsNullOrEmpty(codigo) && Padrao.IsMatch(codigo);
+}
+
 public class Agente
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -84,7 +138,8 @@ public class Agente
     /// chave crua de propósito: a chave crua não é persistida (só o hash), e o
     /// handler confere um contra o outro a cada request.
     /// </summary>
-    public Produto Produto { get; set; } = Produto.Nfse;
+    public Guid ProdutoId { get; set; }
+    public Produto Produto { get; set; } = null!;
 
     public string ApiKeyHash { get; set; } = string.Empty;
     public string ApiKeyPrefixo { get; set; } = string.Empty;

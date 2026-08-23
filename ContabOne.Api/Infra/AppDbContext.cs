@@ -17,6 +17,7 @@ public class AppDbContext : IdentityDbContext<Usuario, IdentityRole<Guid>, Guid>
 
     public DbSet<Escritorio> Escritorios => Set<Escritorio>();
     public DbSet<Plano> Planos => Set<Plano>();
+    public DbSet<Produto> Produtos => Set<Produto>();
     public DbSet<Agente> Agentes => Set<Agente>();
     public DbSet<Cliente> Clientes => Set<Cliente>();
     public DbSet<Execucao> Execucoes => Set<Execucao>();
@@ -77,10 +78,22 @@ public class AppDbContext : IdentityDbContext<Usuario, IdentityRole<Guid>, Guid>
             e.Property(x => x.PrecoMensal).HasColumnType("decimal(10,2)");
         });
 
+        modelBuilder.Entity<Produto>(e =>
+        {
+            e.HasKey(x => x.Id);
+            // Catálogo global do hub: sem query filter de tenant de propósito
+            // — todo escritório enxerga as mesmas ferramentas.
+            e.HasIndex(x => x.Codigo).IsUnique();
+        });
+
         modelBuilder.Entity<Agente>(e =>
         {
             e.HasKey(x => x.Id);
             e.HasOne(x => x.Escritorio).WithMany(es => es.Agentes).HasForeignKey(x => x.EscritorioId);
+            // Restrict: apagar um produto com agente em campo invalidaria as
+            // chaves que estão nos config.toml dos clientes.
+            e.HasOne(x => x.Produto).WithMany(pr => pr.Agentes)
+                .HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Cliente>(e =>

@@ -100,14 +100,28 @@ Entidades principais: `Escritorio`, `Plano`, `Usuario`, `Agente`, `Cliente`,
 `Execucao`, `ExecucaoMetrica`, `RegraColeta`, `ConfiguracaoEscritorio`,
 `Alerta`.
 
-**Chave de API por ferramenta.** O formato é `<produto>_<prefixo8>_<segredo32>`
+**Chave de API por ferramenta.** O formato é `<codigo>_<prefixo8>_<segredo32>`
 — hoje `nfse_…` (coleta de NFS-e) e `det_…`. O primeiro campo não participa da
-busca nem do hash: o lookup é `prefixo8` + `SHA-256(segredo)`. Ele serve para
-identificar a origem da chave em log e no suporte sem ir ao banco, e o
-`ApiKeyAuthenticationHandler` recusa chave cujo produto não bate com o gravado
-no agente. A lista de prefixos válidos é derivada do enum `Produto` — um valor
-novo no enum já passa a ser aceito, e `HashersTest` tranca as duas regras que
-o prefixo precisa respeitar (sem `_`, sem colisão).
+busca nem do hash: o lookup é `prefixo8` + `SHA-256(segredo)`. Ele identifica a
+origem da chave em log e no suporte sem ir ao banco.
+
+O catálogo de ferramentas é a tabela `Produtos`, administrada em
+**Ferramentas** (`/admin/produtos`) — cadastrar uma não exige deploy. O que o
+cadastro *não* faz é criar a ferramenta: binário do agente, endpoints e bloco
+de configuração do handshake continuam sendo código.
+
+Duas regras sustentam isso sem pôr dado mutável no caminho de autenticação:
+
+1. **A autenticação nunca lê o catálogo.** O handler compara o código da chave
+   com o `Produto.Codigo` do *próprio agente*, que já vem no mesmo JOIN. Uma
+   linha alterada, desativada ou removida não abre nem fecha acesso de quem já
+   está em campo.
+2. **`Codigo` é imutável e a FK é `Restrict`.** O código já foi impresso nas
+   chaves que estão nos `config.toml` dos clientes; o endpoint de atualização
+   não expõe esse campo, e o banco recusa apagar produto com agente vinculado.
+
+Desativar uma ferramenta só a tira do seletor de chaves novas — agente em campo
+continua autenticando. Para cortar acesso existe revogar a chave do agente.
 
 ```bash
 docker compose up -d postgres
