@@ -161,9 +161,15 @@ export interface PlanoLimites {
 }
 
 // ── Agentes ──
+
+// Ferramenta do hub que a chave habilita. A API serializa como string, e o
+// nome em minúsculas é o prefixo da própria chave (`nfse_…`, `det_…`).
+export type Produto = 'Nfse' | 'Det'
+
 export interface AgenteDto {
   id: string
   nome: string
+  produto: Produto
   apiKeyPrefixo: string
   versaoAgente: string | null
   ultimoContatoEm: string | null
@@ -175,12 +181,14 @@ export interface AgenteDto {
 
 export interface CriarAgenteRequest {
   nome: string
+  produto: Produto
   escritorioId?: string
 }
 
 export interface CriarAgenteResponse {
   id: string
   nome: string
+  produto: Produto
   apiKey: string
   aviso: string
 }

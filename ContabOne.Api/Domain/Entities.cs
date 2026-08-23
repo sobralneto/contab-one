@@ -78,6 +78,14 @@ public class Agente
     public Guid EscritorioId { get; set; }
     public Escritorio Escritorio { get; set; } = null!;
     public string Nome { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Ferramenta do hub que esta chave habilita. Redundante com o prefixo da
+    /// chave crua de propósito: a chave crua não é persistida (só o hash), e o
+    /// handler confere um contra o outro a cada request.
+    /// </summary>
+    public Produto Produto { get; set; } = Produto.Nfse;
+
     public string ApiKeyHash { get; set; } = string.Empty;
     public string ApiKeyPrefixo { get; set; } = string.Empty;
     public string? VersaoAgente { get; set; }

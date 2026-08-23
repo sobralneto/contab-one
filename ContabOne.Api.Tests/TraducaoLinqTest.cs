@@ -96,12 +96,14 @@ public class TraducaoLinqTest
         // Forma da projeção de AgentesManagementEndpoints.ListarAsync: o
         // `Ativo` da entidade (propriedade computada) NÃO entra na query — o
         // endpoint projeta `Ativo = a.RevogadoEm == null` e ordena por
-        // CriadoEm. Protege o mesmo padrão de Agente.Ativo.
+        // CriadoEm. Protege o mesmo padrão de Agente.Ativo, mais o ToString()
+        // do enum Produto (mesmo risco de tradução do Papel em usuários).
         var sql = db.Agentes
             .Select(a => new
             {
                 a.Id,
                 a.Nome,
+                Produto = a.Produto.ToString(),
                 a.ApiKeyPrefixo,
                 a.VersaoAgente,
                 a.UltimoContatoEm,
@@ -114,6 +116,7 @@ public class TraducaoLinqTest
             .ToQueryString();
 
         Assert.Contains("RevogadoEm", sql);
+        Assert.Contains("Produto", sql);
     }
 
     [Fact]

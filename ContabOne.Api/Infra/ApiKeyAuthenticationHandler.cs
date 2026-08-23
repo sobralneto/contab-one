@@ -37,11 +37,14 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
         var apiKey = header.ToString();
 
         string prefixo, hash;
+        Produto produtoDaChave;
         try
         {
             prefixo = ApiKeyHasher.ExtrairPrefixo(apiKey);
             hash = ApiKeyHasher.HashApiKey(apiKey);
             if (string.IsNullOrEmpty(prefixo))
+                return AuthenticateResult.Fail("Formato de API key inválido");
+            if (!ApiKeyHasher.TentarExtrairProduto(apiKey, out produtoDaChave))
                 return AuthenticateResult.Fail("Formato de API key inválido");
         }
         catch
@@ -60,6 +63,14 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
         if (!agente.Ativo)
             return AuthenticateResult.Fail("API key revogada");
 
+        // O produto declarado pela chave tem que bater com o gravado no
+        // agente. Com prefixo8 aleatório a divergência é praticamente
+        // inalcançável por acaso — o que este guarda tranca é a chave de uma
+        // ferramenta valendo como se fosse de outra caso a linha seja
+        // adulterada ou migrada errado.
+        if (agente.Produto != produtoDaChave)
+            return AuthenticateResult.Fail("API key inválida");
+
         if (agente.Escritorio.Status != StatusEscritorio.Ativo)
             return AuthenticateResult.Fail("Escritório não está ativo");
 
@@ -75,6 +86,7 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
             new Claim(ClaimTypes.NameIdentifier, agente.Id.ToString()),
             new Claim("escritorio_id", agente.EscritorioId.ToString()),
             new Claim("agente_id", agente.Id.ToString()),
+            new Claim("produto", agente.Produto.ToString()),
             new Claim(ClaimTypes.Role, "Agente"),
         };
 

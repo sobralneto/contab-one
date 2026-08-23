@@ -24,6 +24,7 @@ public static class AgentesManagementEndpoints
             {
                 a.Id,
                 a.Nome,
+                Produto = a.Produto.ToString(), // frontend espera string, como Papel e Status
                 a.ApiKeyPrefixo,
                 a.VersaoAgente,
                 a.UltimoContatoEm,
@@ -47,6 +48,15 @@ public static class AgentesManagementEndpoints
         if (escId == null)
             return Results.BadRequest(new { erro = "EscritorioId é obrigatório para admin da plataforma" });
 
+        // Ausente = Nfse: mantém compatível quem já chamava o endpoint sem o
+        // campo, que era a única ferramenta existente. IsDefined junto do
+        // TryParse porque TryParse sozinho aceita a forma numérica ("7") e
+        // devolveria um Produto que não existe.
+        var produto = Produto.Nfse;
+        if (!string.IsNullOrEmpty(req.Produto) &&
+            !(Enum.TryParse(req.Produto, ignoreCase: true, out produto) && Enum.IsDefined(produto)))
+            return Results.BadRequest(new { erro = $"Produto inválido: {req.Produto}" });
+
         // Check plan limit
         var qtdAtivos = await db.Agentes.IgnoreQueryFilters().CountAsync(a => a.EscritorioId == escId && a.RevogadoEm == null);
         var plano = await db.Escritorios
@@ -58,12 +68,13 @@ public static class AgentesManagementEndpoints
         if (plano != null && qtdAtivos >= plano.MaxAgentes)
             return Results.BadRequest(new { erro = "Limite de agentes do plano atingido" });
 
-        var (chaveCompleta, prefixo, hash) = ApiKeyHasher.Gerar();
+        var (chaveCompleta, prefixo, hash) = ApiKeyHasher.Gerar(produto);
 
         var agente = new Agente
         {
             EscritorioId = escId.Value,
             Nome = req.Nome,
+            Produto = produto,
             ApiKeyHash = hash,
             ApiKeyPrefixo = prefixo,
         };
@@ -76,6 +87,7 @@ public static class AgentesManagementEndpoints
         {
             agente.Id,
             agente.Nome,
+            Produto = produto.ToString(),
             ApiKey = chaveCompleta, // exibida uma única vez (§7)
             Aviso = "Guarde esta chave agora. Ela não será exibida novamente.",
         });
@@ -101,4 +113,9 @@ public record CriarAgenteRequest
 {
     public string Nome { get; init; } = string.Empty;
     public Guid? EscritorioId { get; init; } // only for PlatformAdmin
+
+    /// <summary>
+    /// Nome do valor de <see cref="Produto"/> ("Nfse", "Det"). Ausente = Nfse.
+    /// </summary>
+    public string? Produto { get; init; }
 }

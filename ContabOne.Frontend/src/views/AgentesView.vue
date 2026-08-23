@@ -15,6 +15,7 @@
         <thead>
           <tr>
             <th>Nome</th>
+            <th>Ferramenta</th>
             <th v-if="auth.isPlatformAdmin">Escritório</th>
             <th>Chave</th>
             <th>Versão</th>
@@ -27,8 +28,13 @@
         <tbody>
           <tr v-for="a in agentes" :key="a.id">
             <td class="col-nome">{{ a.nome }}</td>
+            <td class="col-produto">
+              <span class="produto-chip" :title="infoProduto(a.produto).descricao">
+                {{ infoProduto(a.produto).label }}
+              </span>
+            </td>
             <td v-if="auth.isPlatformAdmin" class="col-escritorio">{{ a.escritorioNome || '—' }}</td>
-            <td class="col-chave"><code>nfse_{{ a.apiKeyPrefixo }}_…</code></td>
+            <td class="col-chave"><code>{{ infoProduto(a.produto).prefixo }}_{{ a.apiKeyPrefixo }}_…</code></td>
             <td class="col-versao">{{ a.versaoAgente || '—' }}</td>
             <td class="col-criado">{{ formatDate(a.criadoEm) }}</td>
             <td class="col-contato">{{ a.ultimoContatoEm ? formatRelativeTime(a.ultimoContatoEm) : 'Nunca' }}</td>
@@ -60,22 +66,35 @@
       <div v-if="loading" class="loading-msg">Carregando...</div>
     </div>
 
-    <!-- Modal: selecionar escritório (admin) antes de gerar a chave -->
+    <!-- Modal: escolher a ferramenta (e o escritório, se admin) antes de gerar -->
     <Teleport to="body">
-      <div class="modal-overlay" v-if="escritorioModal">
+      <div class="modal-overlay" v-if="gerarModal">
         <div class="modal-card animate-fade-in">
           <h2 class="modal-title">Nova chave de agente</h2>
-          <p class="modal-desc">Selecione o escritório ao qual esta chave será vinculada.</p>
-          <form @submit.prevent="confirmarEscritorio" class="modal-form">
+          <p class="modal-desc">
+            A chave vale para uma ferramenta só — o prefixo dela identifica qual.
+          </p>
+          <form @submit.prevent="confirmarGerar" class="modal-form">
             <div class="form-field">
+              <label>Ferramenta <span class="req">*</span></label>
+              <select name="produto" v-model="produtoSelecionado" required>
+                <option v-for="p in PRODUTOS" :key="p" :value="p">
+                  {{ PRODUTO[p].label }} — {{ PRODUTO[p].descricao }}
+                </option>
+              </select>
+              <span class="form-hint">
+                A chave começará com <code>{{ PRODUTO[produtoSelecionado].prefixo }}_</code>
+              </span>
+            </div>
+            <div class="form-field" v-if="auth.isPlatformAdmin">
               <label>Escritório <span class="req">*</span></label>
-              <select v-model="escritorioSelecionado" required>
+              <select name="escritorio" v-model="escritorioSelecionado" required>
                 <option :value="null" disabled>Selecione o escritório</option>
                 <option v-for="e in escritorios" :key="e.id" :value="e.id">{{ e.nome }}</option>
               </select>
             </div>
             <div class="modal-actions">
-              <button type="button" class="btn-secondary" @click="fecharEscritorioModal">Cancelar</button>
+              <button type="button" class="btn-secondary" @click="fecharGerarModal">Cancelar</button>
               <button type="submit" class="btn-primary" :disabled="gerandoChave">
                 {{ gerandoChave ? 'Gerando...' : 'Gerar chave' }}
               </button>
@@ -125,7 +144,8 @@ import EstadoVazio from '@/components/comum/EstadoVazio.vue'
 import ConfirmarAcao from '@/components/comum/ConfirmarAcao.vue'
 import { listarAgentes, criarAgente, revogarAgente } from '@/api/endpoints/agentes'
 import { listarEscritorios } from '@/api/endpoints/admin'
-import type { AgenteDto, EscritorioDto } from '@/api/types'
+import type { AgenteDto, EscritorioDto, Produto } from '@/api/types'
+import { PRODUTO, PRODUTOS } from '@/constants/produto'
 import { useFormatters } from '@/composables/useFormatters'
 import { useAuthStore } from '@/stores/auth'
 
@@ -141,36 +161,40 @@ const chaveModal = ref(false)
 const novaChave = ref('')
 const copiado = ref(false)
 
-// Admin: seleção de escritório antes de gerar a chave
-const escritorioModal = ref(false)
+// Escolha da ferramenta (todos) e do escritório (só admin) antes de gerar
+const gerarModal = ref(false)
+const produtoSelecionado = ref<Produto>('Nfse')
 const escritorioSelecionado = ref<string | null>(null)
 const gerandoChave = ref(false)
 
-async function abrirGerarChave() {
-  if (auth.isPlatformAdmin) {
-    escritorioModal.value = true
-    return
-  }
-  await gerarChave()
+// Rótulo com degradação suave: se a API passar a devolver um produto que este
+// build ainda não conhece, a linha mostra o valor cru em vez de quebrar.
+function infoProduto(p: Produto) {
+  return PRODUTO[p] ?? { label: p, descricao: '', prefixo: String(p ?? '').toLowerCase() }
 }
 
-function fecharEscritorioModal() {
-  escritorioModal.value = false
+function abrirGerarChave() {
+  gerarModal.value = true
+}
+
+function fecharGerarModal() {
+  gerarModal.value = false
   escritorioSelecionado.value = null
 }
 
-async function confirmarEscritorio() {
+async function confirmarGerar() {
   await gerarChave(escritorioSelecionado.value ?? undefined)
 }
 
 async function gerarChave(escritorioId?: string) {
   gerandoChave.value = true
   try {
-    const nome = `Agente ${new Date().toLocaleDateString('pt-BR')}`
-    const res = await criarAgente({ nome, escritorioId })
+    const produto = produtoSelecionado.value
+    const nome = `Agente ${PRODUTO[produto].label} ${new Date().toLocaleDateString('pt-BR')}`
+    const res = await criarAgente({ nome, produto, escritorioId })
     novaChave.value = res.apiKey
     copiado.value = false
-    escritorioModal.value = false
+    gerarModal.value = false
     chaveModal.value = true
     carregar()
   } catch { /* interceptor handles */ } finally {
@@ -265,6 +289,11 @@ onMounted(carregar)
 
 .col-nome { font-weight: 500; }
 .col-escritorio { font-size: 13px; color: var(--text-secondary); }
+.produto-chip {
+  display: inline-block; font-size: 11px; font-weight: 600;
+  padding: 3px 10px; border-radius: 12px; letter-spacing: 0.02em;
+  background: var(--accent-suave); color: var(--accent);
+}
 .col-chave code { font-size: 12px; color: var(--text-muted); background: var(--surface-page); padding: 3px 8px; border-radius: 4px; }
 .col-versao { font-size: 13px; color: var(--text-muted); }
 .col-criado { font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
@@ -307,6 +336,8 @@ onMounted(carregar)
   transition: border-color 150ms, box-shadow 150ms;
 }
 .form-field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-suave); }
+.form-hint { font-size: 12px; color: var(--text-muted); }
+.form-hint code { font-family: var(--font-mono); background: var(--surface-page); padding: 1px 5px; border-radius: 3px; }
 .req { color: var(--erro); }
 
 .chave-aviso {

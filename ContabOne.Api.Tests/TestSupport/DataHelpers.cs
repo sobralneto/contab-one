@@ -44,13 +44,15 @@ public static class DataHelpers
     }
 
     public static (Agente agente, string chaveCompleta) CriarAgente(
-        AppDbContext db, Guid escritorioId, string nome = "Agente Teste")
+        AppDbContext db, Guid escritorioId, string nome = "Agente Teste",
+        Produto produto = Produto.Nfse)
     {
-        var (chave, prefixo, hash) = ApiKeyHasher.Gerar();
+        var (chave, prefixo, hash) = ApiKeyHasher.Gerar(produto);
         var agente = new Agente
         {
             EscritorioId = escritorioId,
             Nome = nome,
+            Produto = produto,
             ApiKeyHash = hash,
             ApiKeyPrefixo = prefixo,
         };

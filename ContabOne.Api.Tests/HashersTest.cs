@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ContabOne.Api.Domain;
 using ContabOne.Api.Security;
 using Xunit;
 
@@ -14,15 +15,39 @@ public class HashersTest
 {
     // ── ApiKeyHasher ──
 
-    [Fact]
-    public void Gerar_ProduzChaveNoFormatoEsperado_EHashCorresponde()
+    [Theory]
+    [InlineData(Produto.Nfse, "nfse")]
+    [InlineData(Produto.Det, "det")]
+    public void Gerar_ProduzChaveNoFormatoEsperado_EHashCorresponde(Produto produto, string prefixoProduto)
     {
-        var (chave, prefixo, hash) = ApiKeyHasher.Gerar();
+        var (chave, prefixo, hash) = ApiKeyHasher.Gerar(produto);
 
-        Assert.Matches("^nfse_[0-9a-f]{8}_[0-9a-f]{32}$", chave);
+        Assert.Matches($"^{prefixoProduto}_[0-9a-f]{{8}}_[0-9a-f]{{32}}$", chave);
         Assert.Equal(8, prefixo.Length);
         Assert.Equal(hash, ApiKeyHasher.HashApiKey(chave));
         Assert.Equal(prefixo, ApiKeyHasher.ExtrairPrefixo(chave));
+
+        Assert.True(ApiKeyHasher.TentarExtrairProduto(chave, out var lido));
+        Assert.Equal(produto, lido);
+    }
+
+    /// <summary>
+    /// Todo produto do enum tem que render um prefixo utilizável: sem `_`
+    /// (o parser separa por `_` e exige exatamente 3 campos) e sem colidir
+    /// com outro produto. Este teste é o portão que faz a lista de prefixos
+    /// poder ser derivada do enum em vez de mantida à mão.
+    /// </summary>
+    [Fact]
+    public void TodoProduto_TemPrefixoUsavelEUnico()
+    {
+        var prefixos = Enum.GetValues<Produto>().Select(ApiKeyHasher.PrefixoDe).ToList();
+
+        Assert.All(prefixos, p =>
+        {
+            Assert.NotEmpty(p);
+            Assert.DoesNotContain('_', p);
+        });
+        Assert.Equal(prefixos.Count, prefixos.Distinct().Count());
     }
 
     [Theory]
@@ -30,9 +55,14 @@ public class HashersTest
     [InlineData("nfse_abcdefgh")]
     [InlineData("nfse_abcdefgh_segredo_curto")]
     [InlineData("outro_abcdefgh_0123456789abcdef0123456789abcdef")]
+    // Forma numérica do enum: Enum.TryParse com ignoreCase aceitaria "0" como
+    // Produto.Nfse. O parser compara o prefixo textual, então tem que recusar.
+    [InlineData("0_abcdefgh_0123456789abcdef0123456789abcdef")]
+    [InlineData("NFSE_abcdefgh_0123456789abcdef0123456789abcdef")]
     public void HashApiKey_RejeitaFormatosInvalidos(string chave)
     {
         Assert.Throws<ArgumentException>(() => ApiKeyHasher.HashApiKey(chave));
+        Assert.False(ApiKeyHasher.TentarExtrairProduto(chave, out _));
     }
 
     // ── CnpjHasher.Mascarar ──

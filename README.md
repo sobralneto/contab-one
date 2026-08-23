@@ -87,7 +87,7 @@ EF Core 10 + Npgsql, multi-tenant por *global query filter*.
 | Runtime | .NET 10 (LTS) |
 | Banco | PostgreSQL (migrations rodam no startup) |
 | Auth humano | ASP.NET Core Identity + JWT (access curto + refresh) |
-| Auth agente | API key por agente, hash no banco (header `X-Api-Key`) |
+| Auth agente | API key por agente, hash no banco (header `X-Api-Key`), escopada por ferramenta |
 | Validação | FluentValidation · Logs: Serilog · Docs: OpenAPI + Scalar |
 | Rate limit | nativo, particionado por IP — `auth` 10/min, `agent` 60/min |
 
@@ -99,6 +99,15 @@ Há também um modo cron: `dotnet ContabOne.Api.dll --job=alertas`.
 Entidades principais: `Escritorio`, `Plano`, `Usuario`, `Agente`, `Cliente`,
 `Execucao`, `ExecucaoMetrica`, `RegraColeta`, `ConfiguracaoEscritorio`,
 `Alerta`.
+
+**Chave de API por ferramenta.** O formato é `<produto>_<prefixo8>_<segredo32>`
+— hoje `nfse_…` (coleta de NFS-e) e `det_…`. O primeiro campo não participa da
+busca nem do hash: o lookup é `prefixo8` + `SHA-256(segredo)`. Ele serve para
+identificar a origem da chave em log e no suporte sem ir ao banco, e o
+`ApiKeyAuthenticationHandler` recusa chave cujo produto não bate com o gravado
+no agente. A lista de prefixos válidos é derivada do enum `Produto` — um valor
+novo no enum já passa a ser aceito, e `HashersTest` tranca as duas regras que
+o prefixo precisa respeitar (sem `_`, sem colisão).
 
 ```bash
 docker compose up -d postgres
