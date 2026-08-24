@@ -1,0 +1,15 @@
+
+Frontend: http://localhost:5173
+API: http://localhost:5139
+
+Login admin:
+Email: admin@nfse.local
+Senha: Admin123!
+
+Login escritório:
+Email: escritorio@nfse.local
+Senha: Admin123!
+
+Login usuario:
+Email: usuario@nfse.local
+Senha: Admin123!
