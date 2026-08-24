@@ -2,7 +2,7 @@ name: contab-one
 
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     container_name: contab-one-db
     environment:
       POSTGRES_USER: contabone
@@ -11,7 +11,10 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # A imagem do Postgres 18 mudou o PGDATA para
+      # /var/lib/postgresql/18/docker e declara o volume um nível acima —
+      # montar em /var/lib/postgresql/data deixaria os dados fora do volume.
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U contabone -d contab_one"]
       interval: 5s

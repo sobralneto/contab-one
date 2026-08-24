@@ -7,7 +7,7 @@ namespace ContabOne.Api.Tests.TestSupport;
 
 /// <summary>
 /// Postgres efêmero por execução da suíte (Testcontainers). Mesma tag do
-/// docker-compose.yml (`postgres:17-alpine`) — a imagem já está cacheada na
+/// docker-compose.yml (`postgres:18-alpine`) — a imagem já está cacheada na
 /// máquina de desenvolvimento, e teste e desenvolvimento rodam no mesmo motor.
 ///
 /// Um container por coleção de testes: as classes que precisam de banco
@@ -28,7 +28,7 @@ public class PostgresFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         _container = new PostgreSqlBuilder()
-            .WithImage("postgres:17-alpine")
+            .WithImage("postgres:18-alpine")
             .WithDatabase("contab_one_teste")
             .WithUsername("contabone")
             .WithPassword("contabone")

@@ -27,7 +27,7 @@ contab-one/
 ├── ContabOne.Api/       API .NET 10 + PostgreSQL — licenciamento, métricas, multi-tenant
 ├── ContabOne.Api.Tests/ suíte xUnit da API (Testcontainers)
 ├── ContabOne.Frontend/  painel Vue 3 + TypeScript + Vite
-├── docker-compose.yml   Postgres local (postgres:17-alpine)
+├── docker-compose.yml   Postgres local (postgres:18-alpine)
 ├── openspec/            specs e histórico de mudanças (fluxo OpenSpec)
 └── PLANO_SAAS_*.md      documentos de projeto das três camadas
 ```
@@ -230,7 +230,7 @@ dotnet test --filter "Category!=Banco"
 
 - Sem filtro: suíte completa — hoje **51 testes**, ~15s com a imagem já baixada.
   Os testes marcados `[Trait("Category", "Banco")]` sobem um **Postgres efêmero**
-  via Testcontainers (`postgres:17-alpine`, a mesma tag do `docker-compose.yml`)
+  via Testcontainers (`postgres:18-alpine`, a mesma tag do `docker-compose.yml`)
   e exercitam os endpoints reais pelo host in-process
   (`WebApplicationFactory<Program>`).
 - Com `Category!=Banco`: a camada rápida — hoje **21 testes**, ~2s, **sem
