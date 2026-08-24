@@ -1,6 +1,42 @@
 # Frontend — Contab One
 
-Interface web (Vue 3 + TypeScript + Vite) do SaaS de coleta de NFS-e.
+Interface web (Vue 3 + TypeScript + Vite) do painel do hub Contab One.
+
+## Navegação: hub, domínios e ferramentas
+
+O painel atende mais de uma ferramenta (NFS-e, DET, e as que vierem depois),
+agrupadas por domínio — o departamento do escritório contábil que cada uma
+atende (Fiscal, DP, Contábil). A navegação inteira é **derivada do catálogo**
+que `GET /api/produtos` devolve, carregado uma vez no bootstrap da sessão em
+`stores/catalogo.ts` — nada de item de menu escrito à mão.
+
+- **`/`** é o hub: cards de ferramenta agrupados por domínio. Escritório vê
+  card navegável só do que contratou; o que é ativo mas não contratado
+  aparece como card informativo (sem link, sem contato comercial). Admin da
+  plataforma sempre navega para qualquer ferramenta ativa.
+- **`/f/:produto/:pagina`** é a família de rotas de cada ferramenta —
+  `:produto` é o mesmo `codigo` do catálogo que prefixa a chave de API
+  (`nfse`, `det`, …). `:pagina` é uma de `visao-geral`, `clientes`,
+  `execucoes`, `agentes`, `configuracao`; o guard (`router/guards.ts`) só
+  deixa passar a que a ferramenta declara em `Produto.Paginas`.
+- As rotas de antes de existir mais de uma ferramenta (`/dashboard`,
+  `/clientes`, `/execucoes`, `/agentes`, `/configuracao`) continuam
+  existindo como redirect permanente para o equivalente em `/f/nfse/…`.
+- `layouts/AppLayout.vue` monta o menu lateral a partir do catálogo:
+  domínio vira título de seção, ferramenta contratada vira item, página
+  declarada vira submenu. `IconeCatalogo.vue` resolve `Dominio.Icone` (nome
+  de ícone salvo no banco) contra um mapa local; nome desconhecido cai num
+  ícone genérico — nunca deixa o item sem ícone.
+
+**Para publicar uma ferramenta nova**, o trabalho é praticamente todo do
+lado da API: cadastrar o produto em `/admin/produtos` com domínio e páginas
+(criando o domínio antes, se for novo) e contratá-lo para os escritórios
+certos. O frontend não precisa de deploy — o menu, o hub e as rotas
+aparecem sozinhos assim que o catálogo os declara. O que ainda exige código
+novo é a página em si (o componente Vue de cada `pagina` que a ferramenta
+declarar) e, hoje, `Cliente`/`Execucao`/`Configuracao` continuam sendo dados
+globais por escritório, não por produto — ferramenta nova convive com essa
+limitação até isso ser escopado.
 
 ## Desenvolvimento
 
@@ -52,9 +88,10 @@ npm run test:e2e
 - O `globalSetup` verifica `/health` e `/api/seed/status` **antes** de subir o
   vite e falha com instruções se a stack não estiver no ar.
 - O Playwright sobe o `vite dev` sozinho (`webServer` do config).
-- Caminhos cobertos: login→dashboard (inclui sobrevivência do cookie de
-  refresh a um reload), login inválido, cadastrar cliente (com e sem código
-  duplicado), gerar chave de agente, admin suspender escritório.
+- Caminhos cobertos: login→hub→visão geral do NFS-e (inclui sobrevivência do
+  cookie de refresh a um reload e o redirect dos endereços de antes de
+  existir mais de uma ferramenta), login inválido, cadastrar cliente (com e
+  sem código duplicado), gerar chave de agente, admin suspender escritório.
 - Execução serial (`workers: 1`): o rate limiter de auth da API
   (10/min por IP, fila 2) vira flake com logins simultâneos de vários workers.
   Se rodar várias execuções seguidas, reinicie a API entre elas — a janela do

@@ -3,9 +3,19 @@ import type { Papel } from '@/api/types'
 /**
  * Texto que abre na primeira visita de cada página.
  *
- * A chave é o `name` da rota em router/index.ts. Página nova só precisa de uma
- * entrada aqui — o componente ExplicacaoPagina lê deste mapa e é montado uma
- * única vez no AppLayout, então nenhuma view precisa ser alterada.
+ * Duas famílias de chave:
+ * - Rota de ferramenta (`/f/:produto/...`): `${produtoCodigo}.${pagina}`
+ *   (ex.: `nfse.clientes`), com fallback para `${pagina}` sozinho
+ *   (`clientes`) quando não há texto específico daquela ferramenta — é
+ *   assim que uma ferramenta nova (DET, e as que vierem depois) herda o
+ *   texto genérico de "Clientes" sem precisar de entrada própria.
+ * - Rota transversal (usuários, admin/*): o `name` da rota, como sempre foi.
+ *
+ * `visao-geral` é o texto genérico do dashboard — a chave era `dashboard`
+ * antes da rota virar `/f/:produto`.
+ *
+ * O componente ExplicacaoPagina lê deste mapa e é montado uma única vez no
+ * AppLayout, então nenhuma view precisa ser alterada para ganhar explicação.
  *
  * Rotas do layout de autenticação (login, troca de senha) ficam de fora de
  * propósito: não são "a aplicação" e o layout delas nem monta o componente.
@@ -18,8 +28,8 @@ export interface ExplicacaoPagina {
 }
 
 export const EXPLICACOES_PAGINA: Record<string, ExplicacaoPagina> = {
-  dashboard: {
-    titulo: 'Dashboard',
+  'visao-geral': {
+    titulo: 'Visão geral',
     paragrafos: [
       'A visão geral do que o agente coletou: quantas notas foram baixadas no mês, quantos clientes estão cadastrados e quantos agentes estão ativos.',
       'Os alertas avisam sobre certificado perto de vencer, execução que falhou e agente que parou de dar sinal. Vale olhar aqui primeiro no começo do dia.',
@@ -88,7 +98,7 @@ export const EXPLICACOES_PAGINA: Record<string, ExplicacaoPagina> = {
     ],
   },
 
-  'admin-regras': {
+  regras: {
     titulo: 'Regras de coleta',
     paragrafos: [
       'O pacote de regras que todos os agentes baixam para saber como conversar com o Portal Nacional.',

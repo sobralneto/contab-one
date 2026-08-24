@@ -160,10 +160,32 @@ export interface PlanoLimites {
   maxAgentes: number
 }
 
+// ── Domínios e páginas (agrupamento do catálogo) ──
+
+// Departamento do escritório contábil que a ferramenta atende. Dado, não
+// enum: cadastrar domínio novo no backend não exige deploy do front.
+export interface DominioDto {
+  codigo: string
+  nome: string
+  ordem: number
+  icone: string | null
+}
+
+// Conjunto fechado espelhando `PaginaFerramenta` na API — cada valor
+// corresponde a um componente de rota de ferramenta (/f/:produto/…) que
+// existe no front. Clientes e Agentes ficam de fora de propósito: as duas
+// telas mostram dado do escritório inteiro, não particionado por produto —
+// vivem em rotas transversais (`/clientes`, `/agentes`). "regras" é
+// restrita a PlatformAdmin (não EscritorioAdmin) — mais estrita que as
+// outras páginas de ferramenta.
+export type PaginaFerramenta = 'visao-geral' | 'execucoes' | 'configuracao' | 'regras'
+
 // ── Produtos (ferramentas do hub) ──
 
 // Catálogo vindo do banco, não de uma lista fixa no front. `codigo` é o
-// primeiro campo da chave de API do produto (`nfse_…`, `det_…`).
+// primeiro campo da chave de API do produto (`nfse_…`, `det_…`). É o que
+// `GET /api/produtos` devolve para a sessão: escopado a quem contratou, ou o
+// catálogo inteiro (marcado por `contratado`) para o admin.
 export interface ProdutoDto {
   id: string
   codigo: string
@@ -171,11 +193,24 @@ export interface ProdutoDto {
   descricao: string
   ativo: boolean
   ordem: number
+  paginas: PaginaFerramenta[]
+  dominio: DominioDto
+  contratado: boolean
 }
 
-// A visão do admin traz também o que só interessa ao cadastro.
-export interface ProdutoAdminDto extends ProdutoDto {
+// A visão de cadastro do admin (`GET /api/admin/produtos`) — inclui
+// inativos e o que só interessa à tela de Ferramentas.
+export interface ProdutoAdminDto {
+  id: string
+  codigo: string
+  nome: string
+  descricao: string
+  ativo: boolean
+  ordem: number
   criadoEm: string
+  paginas: PaginaFerramenta[]
+  dominioCodigo: string
+  dominioNome: string
   totalAgentes: number
 }
 
@@ -195,6 +230,8 @@ export interface CriarProdutoRequest {
   codigo: string
   nome: string
   descricao?: string
+  dominioCodigo: string
+  paginas?: PaginaFerramenta[]
   ativo?: boolean
   ordem?: number
 }
@@ -204,6 +241,8 @@ export interface CriarProdutoRequest {
 export interface AtualizarProdutoRequest {
   nome: string
   descricao?: string
+  dominioCodigo?: string
+  paginas?: PaginaFerramenta[]
   ativo?: boolean
   ordem?: number
 }

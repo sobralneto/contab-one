@@ -16,13 +16,9 @@
 
       <!-- Navigation -->
       <nav class="sidebar-nav">
-        <div class="nav-section-label">Principal</div>
+        <div class="nav-section-label">In&iacute;cio</div>
 
-        <router-link
-          to="/dashboard"
-          class="nav-item"
-          active-class="nav-item--active"
-        >
+        <router-link to="/" class="nav-item" active-class="nav-item--active">
           <span class="nav-icon">
             <svg
               width="18"
@@ -40,9 +36,72 @@
               <rect x="3" y="14" width="7" height="7" />
             </svg>
           </span>
-          <span class="nav-label">Dashboard</span>
+          <span class="nav-label">Meu hub</span>
         </router-link>
 
+        <!-- Ferramentas: geradas do catálogo da sessão, não escritas aqui —
+             ferramenta nova aparece sem alteração deste template. Nada
+             renderiza enquanto o catálogo não resolveu, pra não piscar item
+             incompleto; falha na carga mostra um jeito de tentar de novo,
+             sem derrubar o resto do menu. -->
+        <template v-if="catalogo.carregado">
+          <template v-for="grupo in gruposVisiveis" :key="grupo.dominio.codigo">
+            <div class="nav-section-label">{{ grupo.dominio.nome }}</div>
+
+            <template v-for="produto in grupo.produtos" :key="produto.id">
+              <router-link
+                :to="`/f/${produto.codigo}`"
+                class="nav-item"
+                active-class="nav-item--active"
+              >
+                <span class="nav-icon">
+                  <IconeCatalogo :nome="grupo.dominio.icone" />
+                </span>
+                <span class="nav-label">{{ produto.nome }}</span>
+              </router-link>
+
+              <div class="nav-sublist" v-if="subPaginas(produto).length">
+                <router-link
+                  v-for="sp in subPaginas(produto)"
+                  :key="sp.valor"
+                  :to="`/f/${produto.codigo}/${sp.valor}`"
+                  class="nav-subitem"
+                  active-class="nav-subitem--active"
+                >
+                  {{ sp.label }}
+                </router-link>
+              </div>
+            </template>
+          </template>
+        </template>
+        <template v-else-if="catalogo.falhou">
+          <div class="nav-section-label">Ferramentas</div>
+          <button type="button" class="nav-item nav-item--retry" @click="catalogo.carregar()">
+            <span class="nav-icon">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="23 4 23 10 17 10" />
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+              </svg>
+            </span>
+            <span class="nav-label">Tentar novamente</span>
+          </button>
+        </template>
+
+        <div class="nav-section-label">Escrit&oacute;rio</div>
+
+        <!-- Clientes e Agentes ficam fora do agrupamento por domínio de
+             propósito: Cliente e Agente não são particionados por produto
+             no banco — a mesma tela vale pra qualquer ferramenta. Rota
+             própria (`/clientes`, `/agentes`), sem `:produto`. -->
         <router-link
           to="/clientes"
           class="nav-item"
@@ -69,34 +128,10 @@
         </router-link>
 
         <router-link
-          to="/execucoes"
-          class="nav-item"
-          active-class="nav-item--active"
-        >
-          <span class="nav-icon">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-            </svg>
-          </span>
-          <span class="nav-label">Execu&ccedil;&otilde;es</span>
-        </router-link>
-
-        <div class="nav-section-label">Configura&ccedil;&atilde;o</div>
-
-        <router-link
+          v-if="auth.isEscritorioAdmin"
           to="/agentes"
           class="nav-item"
           active-class="nav-item--active"
-          v-if="auth.isEscritorioAdmin"
         >
           <span class="nav-icon">
             <svg
@@ -147,32 +182,6 @@
             </svg>
           </span>
           <span class="nav-label">Usu&aacute;rios</span>
-        </router-link>
-
-        <router-link
-          to="/configuracao"
-          class="nav-item"
-          active-class="nav-item--active"
-          v-if="auth.isEscritorioAdmin"
-        >
-          <span class="nav-icon">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <circle cx="12" cy="12" r="3" />
-              <path
-                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-              />
-            </svg>
-          </span>
-          <span class="nav-label">Configura&ccedil;&atilde;o</span>
         </router-link>
 
         <!-- Admin section -->
@@ -250,33 +259,6 @@
             </span>
             <span class="nav-label">Ferramentas</span>
           </router-link>
-
-          <router-link
-            to="/admin/regras"
-            class="nav-item"
-            active-class="nav-item--active"
-          >
-            <span class="nav-icon">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <line x1="8" y1="6" x2="21" y2="6" />
-                <line x1="8" y1="12" x2="21" y2="12" />
-                <line x1="8" y1="18" x2="21" y2="18" />
-                <line x1="3" y1="6" x2="3.01" y2="6" />
-                <line x1="3" y1="12" x2="3.01" y2="12" />
-                <line x1="3" y1="18" x2="3.01" y2="18" />
-              </svg>
-            </span>
-            <span class="nav-label">Regras</span>
-          </router-link>
         </template>
       </nav>
 
@@ -305,7 +287,7 @@
             <line x1="3" y1="18" x2="21" y2="18" />
           </svg>
         </button>
-        <h1 class="page-title">{{ ui.pageTitle }}</h1>
+        <h1 class="page-title">{{ tituloPagina }}</h1>
         <div class="topbar-right">
           <!-- Montado uma única vez aqui: o componente resolve o conteúdo pela
                rota atual, então nenhuma view precisa saber que ele existe. -->
@@ -402,17 +384,70 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useUiStore } from "@/stores/ui";
+import { useCatalogoStore, type DominioComFerramentas } from "@/stores/catalogo";
 import { logout as apiLogout } from "@/api/endpoints/auth";
 import ExplicacaoPagina from "@/components/comum/ExplicacaoPagina.vue";
+import IconeCatalogo from "@/components/comum/IconeCatalogo.vue";
 import logoHorizontal from "@/assets/contab-one-horizontal.png";
 import logoMarca from "@/assets/contab-one-favicon.png";
+import type { PaginaFerramenta, ProdutoDto } from "@/api/types";
 
 const auth = useAuthStore();
 const ui = useUiStore();
 const router = useRouter();
+const route = useRoute();
+const catalogo = useCatalogoStore();
+
+// Escritório só enxerga o que contratou; admin enxerga o catálogo ativo
+// inteiro (navegacao-por-dominio). Domínio sem nenhuma ferramenta visível
+// pro papel some da seção — nunca aparece um título sem nada embaixo.
+const gruposVisiveis = computed<DominioComFerramentas[]>(() =>
+  catalogo.porDominio
+    .map((grupo) => ({
+      dominio: grupo.dominio,
+      produtos: auth.isPlatformAdmin ? grupo.produtos : grupo.produtos.filter((p) => p.contratado),
+    }))
+    .filter((grupo) => grupo.produtos.length > 0),
+);
+
+// Rótulo e restrição de papel de cada página do submenu por ferramenta.
+// "visao-geral" fica de fora porque é o próprio link da ferramenta —
+// Clientes e Agentes nem fazem parte de PaginaFerramenta (são rotas
+// transversais, fora de /f/:produto/…). "regras" é mais estrita que as
+// outras: só PlatformAdmin, nunca EscritorioAdmin.
+type PaginaSubmenu = Exclude<PaginaFerramenta, "visao-geral">;
+
+const PAGINA_META: Record<PaginaSubmenu, { label: string; papel?: "escritorioAdmin" | "platformAdmin" }> = {
+  execucoes: { label: "Execuções" },
+  configuracao: { label: "Configuração", papel: "escritorioAdmin" },
+  regras: { label: "Regras de Coleta", papel: "platformAdmin" },
+};
+
+function podeVerPagina(papel: "escritorioAdmin" | "platformAdmin" | undefined): boolean {
+  if (papel === "platformAdmin") return auth.isPlatformAdmin;
+  if (papel === "escritorioAdmin") return auth.isEscritorioAdmin;
+  return true;
+}
+
+function subPaginas(produto: ProdutoDto): { valor: string; label: string }[] {
+  return produto.paginas
+    .filter((p): p is PaginaSubmenu => p !== "visao-geral")
+    .filter((p) => podeVerPagina(PAGINA_META[p].papel))
+    .map((p) => ({ valor: p, label: PAGINA_META[p].label }));
+}
+
+// Cabeçalho identifica a ferramenta além da página (navegacao-por-dominio):
+// "NFS-e · Clientes", não só "Clientes" — sem isso duas ferramentas com a
+// mesma página ficam indistinguíveis pelo título.
+const tituloPagina = computed(() => {
+  const produtoCodigo = route.params.produto as string | undefined;
+  if (!produtoCodigo) return ui.pageTitle;
+  const produto = catalogo.porCodigo(produtoCodigo);
+  return produto ? `${produto.nome} · ${ui.pageTitle}` : ui.pageTitle;
+});
 
 const userIniciais = computed(() => {
   const nome = auth.usuario?.nome ?? "";
@@ -570,9 +605,51 @@ async function onLogout() {
   overflow: hidden;
 }
 
+/* Retry é <button>, não <router-link> — reseta o que o navegador aplicaria. */
+.nav-item--retry {
+  width: 100%;
+  background: none;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Submenu de páginas da ferramenta (Clientes, Execuções, …) */
+.nav-sublist {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0.625rem 4px 2.25rem;
+}
+
+.nav-subitem {
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  color: var(--sidebar-text-fraco);
+  text-decoration: none;
+  font-size: 12.5px;
+  transition: all 150ms ease;
+}
+
+.nav-subitem:hover {
+  background: var(--surface-sidebar-hover);
+  color: var(--sidebar-text);
+}
+
+.nav-subitem--active {
+  color: var(--sidebar-ativo-text);
+  font-weight: 500;
+}
+
 /* Collapsed state */
 .collapsed .nav-label,
 .collapsed .nav-section-label {
+  display: none;
+}
+
+/* Recolhida (68px) não cabe rótulo de submenu — só o link da ferramenta
+   (ícone) continua acessível; abrir o submenu exige expandir a sidebar. */
+.collapsed .nav-sublist {
   display: none;
 }
 

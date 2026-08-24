@@ -1,12 +1,27 @@
 import type { Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
+import { useCatalogoStore } from '@/stores/catalogo'
 import { refreshAccessToken } from '@/api/client'
 import { decodeJwt } from '@/api/jwt'
 import type { Papel } from '@/api/types'
 
 let bootstrapping = false
 let bootstrapped = false
+
+/**
+ * Dispara o carregamento do catálogo sem bloquear a navegação — o layout
+ * renderiza a moldura sem esperar por ele, e o menu de ferramentas aparece
+ * quando o catálogo chega. Idempotente: chamado a cada navegação até o
+ * bootstrap, mas só efetua o request enquanto não houver catálogo carregado
+ * nem carregamento em andamento (guardado dentro do próprio store).
+ */
+function carregarCatalogoEmParalelo() {
+  const catalogo = useCatalogoStore()
+  if (!catalogo.carregado && !catalogo.carregando && !catalogo.falhou) {
+    void catalogo.carregar()
+  }
+}
 
 export function registerGuards(router: Router) {
   router.beforeEach(async (to, _from, next) => {
@@ -52,7 +67,7 @@ export function registerGuards(router: Router) {
     // ── Public routes — allow always ──
     if (to.meta.public) {
       if (to.name === 'login' && auth.isAuthenticated) {
-        return next('/dashboard')
+        return next('/')
       }
       return next()
     }
@@ -63,6 +78,12 @@ export function registerGuards(router: Router) {
       return next({ name: 'login', query: { redirect: to.fullPath } })
     }
 
+    const catalogo = useCatalogoStore()
+
+    // Sem await de propósito: o catálogo não bloqueia a navegação, só chega
+    // um instante depois e o menu de ferramentas aparece quando resolver.
+    carregarCatalogoEmParalelo()
+
     // Senha provisória (definida por um admin): a navegação fica presa na tela
     // de troca. A exceção da própria rota evita o laço de redirecionamento.
     if (auth.usuario?.deveTrocarSenha && to.name !== 'trocar-senha') {
@@ -71,7 +92,30 @@ export function registerGuards(router: Router) {
 
     const requiredRoles = (to.meta.papeis as readonly Papel[] | undefined) ?? []
     if (requiredRoles.length > 0 && !auth.canAccess([...requiredRoles])) {
-      return next('/dashboard')
+      return next('/')
+    }
+
+    // ── Rota de ferramenta (/f/:produto/...): produto precisa existir no
+    // catálogo ativo e, para quem não é admin, estar contratado. Página
+    // que a ferramenta não declara não é alcançável mesmo por endereço
+    // direto — aqui SIM esperamos o catálogo: sem ele não há como decidir.
+    const produtoCodigo = to.params.produto as string | undefined
+    if (produtoCodigo) {
+      if (!catalogo.carregado && !catalogo.falhou) {
+        await catalogo.carregar()
+      }
+
+      const produto = catalogo.porCodigo(produtoCodigo)
+      if (!produto || (!auth.isPlatformAdmin && !produto.contratado)) {
+        return next('/')
+      }
+
+      const pagina = to.meta.pagina
+      if (pagina && !produto.paginas.includes(pagina)) {
+        // Visão geral não declarada cairia num loop se redirecionasse pra
+        // ela mesma — só nesse caso o destino seguro é o hub.
+        return next(pagina === 'visao-geral' ? '/' : `/f/${produtoCodigo}`)
+      }
     }
 
     return next()

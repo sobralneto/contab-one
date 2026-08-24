@@ -74,6 +74,66 @@ public class TourPaginaVista
 // ── Agent ──
 
 /// <summary>
+/// Departamento do escritório contábil que a ferramenta atende (Fiscal, DP,
+/// Contábil, …). Dado, não enum: cadastrar domínio novo não exige deploy do
+/// frontend, que agrupa o menu e o hub a partir do catálogo.
+/// </summary>
+public class Dominio
+{
+    /// <summary>Chave natural, curta e estável (`fiscal`, `dp`, `contabil`).</summary>
+    public string Codigo { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Nome único usado em todo lugar — menu, hub e cadastro. Não existe nome
+    /// curto separado: se um domínio algum dia precisar de dois, é quando
+    /// essa coluna se justifica, não antes.
+    /// </summary>
+    public string Nome { get; set; } = string.Empty;
+
+    public int Ordem { get; set; }
+
+    /// <summary>Nome de um ícone do mapa do frontend; desconhecido cai no genérico.</summary>
+    public string? Icone { get; set; }
+
+    public ICollection<Produto> Produtos { get; set; } = [];
+}
+
+/// <summary>
+/// Página que uma ferramenta pode declarar ter. Conjunto fechado de
+/// propósito: cada valor corresponde a um componente que existe no
+/// frontend, então aceitar valor arbitrário só produziria item de menu que
+/// leva a lugar nenhum.
+///
+/// Clientes e Agentes NÃO entram aqui: as duas telas mostram dado do
+/// escritório inteiro (Cliente e Agente não são particionados por produto
+/// no banco — Agente até tem <see cref="Agente.ProdutoId"/>, mas a listagem
+/// é uma tabela só, com o produto como coluna, não uma tela por produto).
+/// Vivem em rotas transversais (`/clientes`, `/agentes`), fora de
+/// `/f/:produto/…`.
+/// </summary>
+public static class PaginaFerramenta
+{
+    public const string VisaoGeral = "visao-geral";
+    public const string Execucoes = "execucoes";
+    public const string Configuracao = "configuracao";
+
+    /// <summary>
+    /// Cadastro do pacote de regras que os agentes baixam para conversar com
+    /// o portal da ferramenta. Só o NFS-e declara hoje — é específico do
+    /// Portal Nacional, sem equivalente ainda em outra ferramenta — e é
+    /// restrita a PlatformAdmin, mais estrita que Configuração/Execuções
+    /// (que EscritorioAdmin também acessa): publicar uma versão quebrada
+    /// afeta a coleta de todos os escritórios de uma vez.
+    /// </summary>
+    public const string Regras = "regras";
+
+    public static readonly IReadOnlyCollection<string> Todas =
+        [VisaoGeral, Execucoes, Configuracao, Regras];
+
+    public static bool Valida(string? pagina) => pagina != null && Todas.Contains(pagina);
+}
+
+/// <summary>
 /// Ferramenta do hub (coleta de NFS-e, DET, …). Cada agente em campo pertence
 /// a exatamente uma, e a chave de API dele começa pelo <see cref="Codigo"/>
 /// deste produto.
@@ -97,6 +157,17 @@ public class Produto
 
     public string Nome { get; set; } = string.Empty;
     public string Descricao { get; set; } = string.Empty;
+
+    /// <summary>Departamento do escritório contábil que esta ferramenta atende.</summary>
+    public string DominioCodigo { get; set; } = string.Empty;
+    public Dominio Dominio { get; set; } = null!;
+
+    /// <summary>
+    /// Subconjunto de <see cref="PaginaFerramenta.Todas"/> que esta ferramenta
+    /// oferece. O submenu e as rotas do frontend são derivados daqui — página
+    /// não declarada não aparece no menu e não é alcançável pelo endereço.
+    /// </summary>
+    public string[] Paginas { get; set; } = [];
 
     /// <summary>
     /// Controla apenas a OFERTA de novas chaves. Agente já em campo com um
@@ -248,10 +319,20 @@ public class RegraColeta
 
 // ── Per-tenant config ──
 
+/// <summary>
+/// Chave-valor por (escritório, ferramenta). Escopada por
+/// <see cref="ProdutoId"/> porque o comportamento configurável — período de
+/// busca, tipos de nota, geração de PDF — é próprio de cada ferramenta:
+/// NFS-e e DET não têm por que compartilhar o mesmo "período padrão de
+/// busca". Antes de existir mais de uma ferramenta a chave era só
+/// (EscritorioId, Chave); o histórico foi atribuído ao NFS-e no backfill.
+/// </summary>
 public class ConfiguracaoEscritorio
 {
     public Guid EscritorioId { get; set; }
     public Escritorio Escritorio { get; set; } = null!;
+    public Guid ProdutoId { get; set; }
+    public Produto Produto { get; set; } = null!;
     public string Chave { get; set; } = string.Empty;
     public string Valor { get; set; } = string.Empty;
 }

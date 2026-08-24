@@ -4,14 +4,20 @@ using ContabOne.Api.Infra;
 namespace ContabOne.Api.Features.Produtos;
 
 /// <summary>
-/// Ferramentas do hub que o escritório da requisição CONTRATOU — é o que
-/// alimenta o seletor da tela de agentes. O catálogo completo e o cadastro
-/// ficam em /api/admin/produtos (só PlatformAdmin).
+/// Catálogo de ferramentas que a sessão enxerga — alimenta o seletor da tela
+/// de agentes E a navegação (menu e hub) do frontend. O cadastro do catálogo
+/// fica em /api/admin/produtos (só PlatformAdmin).
 ///
-/// Só devolve produto ativo e habilitado: quem consome isto está escolhendo
-/// ferramenta para uma chave NOVA. Agente já existente exibe o próprio produto
-/// pelo que vem na listagem de agentes, então desabilitar uma ferramenta não
-/// apaga da tela quem já a usa.
+/// Só devolve produto ativo: quem consome isto está escolhendo ferramenta
+/// para uma chave nova ou montando a navegação da sessão. Agente já existente
+/// exibe o próprio produto pelo que vem na listagem de agentes, então
+/// desativar uma ferramenta não apaga da tela quem já a usa.
+///
+/// Sempre o catálogo ativo INTEIRO, nunca só o contratado — a navegação
+/// precisa saber que uma ferramenta existe para mostrá-la como indisponível
+/// no hub (card informativo, sem ação), e o seletor de chave de agente filtra
+/// pela flag `contratado` no próprio frontend. Sem escopo resolvido (admin
+/// sem escritório em foco), tudo vem como não contratado.
 /// </summary>
 public static class ProdutosEndpoints
 {
@@ -28,41 +34,49 @@ public static class ProdutosEndpoints
     {
         // O escopo NUNCA vem da query string para usuário de escritório —
         // seria IDOR (§5). O parâmetro só é honrado para PlatformAdmin, que
-        // legitimamente gera chave em nome de outro escritório.
+        // legitimamente gera chave ou navega em nome de outro escritório.
         var escopo = tenant.IsAdmin ? escritorioId : tenant.EscritorioId;
 
-        // Admin sem escritório escolhido ainda não tem o que filtrar: devolve
-        // o catálogo ativo, e a criação da chave é quem recusa ferramenta não
-        // contratada, com o motivo.
-        if (escopo == null)
-        {
-            if (!tenant.IsAdmin)
-                return Results.Ok(Array.Empty<object>());
-
-            var catalogo = await db.Produtos
-                .Where(p => p.Ativo)
-                .OrderBy(p => p.Ordem).ThenBy(p => p.Nome)
-                .Select(p => new { p.Id, p.Codigo, p.Nome, p.Descricao, p.Ativo, p.Ordem })
-                .ToListAsync();
-
-            return Results.Ok(catalogo);
-        }
-
-        var produtos = await db.EscritorioProdutos
-            .IgnoreQueryFilters() // escopo já resolvido acima, sem confiar na query string
-            .Where(ep => ep.EscritorioId == escopo && ep.DesabilitadoEm == null && ep.Produto.Ativo)
-            .OrderBy(ep => ep.Produto.Ordem).ThenBy(ep => ep.Produto.Nome)
-            .Select(ep => new
+        var catalogo = await db.Produtos
+            .Where(p => p.Ativo)
+            .OrderBy(p => p.Dominio.Ordem).ThenBy(p => p.Ordem).ThenBy(p => p.Nome)
+            .Select(p => new
             {
-                ep.Produto.Id,
-                ep.Produto.Codigo,
-                ep.Produto.Nome,
-                ep.Produto.Descricao,
-                ep.Produto.Ativo,
-                ep.Produto.Ordem,
+                p.Id,
+                p.Codigo,
+                p.Nome,
+                p.Descricao,
+                p.Ativo,
+                p.Ordem,
+                p.Paginas,
+                Dominio = new { p.Dominio.Codigo, p.Dominio.Nome, p.Dominio.Ordem, p.Dominio.Icone },
             })
             .ToListAsync();
 
-        return Results.Ok(produtos);
+        // Sem escopo resolvido (admin ainda não escolheu escritório): nada
+        // para marcar como contratado — quem decide contratação é a tela de
+        // Escritórios, não esta listagem.
+        var contratados = escopo == null
+            ? []
+            : await db.EscritorioProdutos
+                .IgnoreQueryFilters() // escopo já resolvido acima, sem confiar na query string
+                .Where(ep => ep.EscritorioId == escopo && ep.DesabilitadoEm == null)
+                .Select(ep => ep.ProdutoId)
+                .ToListAsync();
+
+        var resultado = catalogo.Select(p => new
+        {
+            p.Id,
+            p.Codigo,
+            p.Nome,
+            p.Descricao,
+            p.Ativo,
+            p.Ordem,
+            p.Paginas,
+            p.Dominio,
+            Contratado = contratados.Contains(p.Id),
+        });
+
+        return Results.Ok(resultado);
     }
 }

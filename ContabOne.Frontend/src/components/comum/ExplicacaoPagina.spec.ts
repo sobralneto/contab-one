@@ -25,13 +25,27 @@ async function montar(nomeRota: string, papel: Papel = 'EscritorioUsuario') {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/dashboard', name: 'dashboard', component: rotaVazia },
+      { path: '/visao-geral', name: 'visao-geral', component: rotaVazia },
       { path: '/clientes', name: 'clientes', component: rotaVazia },
       { path: '/sem-texto', name: 'sem-texto', component: rotaVazia },
+      // Espelha uma rota real de ferramenta: :produto no path e `pagina`
+      // no meta, exatamente como router/index.ts declara `/f/:produto/...`.
+      {
+        path: '/f/:produto/clientes',
+        name: 'ferramenta-clientes',
+        component: rotaVazia,
+        meta: { pagina: 'clientes' },
+      },
+      {
+        path: '/f/:produto/exclusiva',
+        name: 'ferramenta-exclusiva',
+        component: rotaVazia,
+        meta: { pagina: 'exclusiva-sem-generico' },
+      },
     ],
   })
 
-  await router.push({ name: nomeRota })
+  await router.push({ name: nomeRota, params: nomeRota.startsWith('ferramenta-') ? { produto: 'det' } : undefined })
   await router.isReady()
 
   return render(ExplicacaoPagina, { global: { plugins: [router] } })
@@ -69,16 +83,30 @@ describe('ExplicacaoPagina', () => {
   })
 
   it('mostra a nota específica do papel', async () => {
-    await montar('dashboard', 'PlatformAdmin')
+    await montar('visao-geral', 'PlatformAdmin')
     expect(
       await screen.findByText(/os números somam todos os escritórios/i),
     ).toBeInTheDocument()
   })
 
   it('não mostra a nota de outro papel', async () => {
-    await montar('dashboard', 'EscritorioUsuario')
-    await screen.findByText('Dashboard')
+    await montar('visao-geral', 'EscritorioUsuario')
+    await screen.findByText('Visão geral')
     expect(screen.queryByText(/os números somam todos os escritórios/i)).not.toBeInTheDocument()
+  })
+
+  it('rota de ferramenta sem texto específico cai no genérico da página', async () => {
+    // /f/det/clientes não tem entrada 'det.clientes' — usa o genérico
+    // 'clientes', o mesmo texto que a página de NFS-e mostra.
+    await montar('ferramenta-clientes')
+    expect(await screen.findByText('Clientes')).toBeInTheDocument()
+  })
+
+  it('rota de ferramenta cujo genérico também não existe não renderiza nada', async () => {
+    await montar('ferramenta-exclusiva')
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Sobre esta página' })).not.toBeInTheDocument()
+    })
   })
 
   it('ao fechar, grava que a página foi vista', async () => {
@@ -96,6 +124,24 @@ describe('ExplicacaoPagina', () => {
 
     await waitFor(() => expect(marcadas).toEqual(['clientes']))
     expect(screen.queryByRole('button', { name: 'Entendi' })).not.toBeInTheDocument()
+  })
+
+  it('em rota de ferramenta, grava a página com a chave composta produto.pagina', async () => {
+    const marcadas: string[] = []
+    servidor.use(
+      http.post('*/api/tour/:pagina', ({ params }) => {
+        marcadas.push(String(params.pagina))
+        return HttpResponse.json({ pagina: params.pagina, vista: true })
+      }),
+    )
+
+    const user = userEvent.setup()
+    await montar('ferramenta-clientes')
+    await user.click(await screen.findByRole('button', { name: 'Entendi' }))
+
+    // "det" é o produto do teste (montar() fixa params.produto = 'det') — o
+    // "visto" precisa ser por ferramenta, não compartilhado com nfse.clientes.
+    await waitFor(() => expect(marcadas).toEqual(['det.clientes']))
   })
 
   it('reabrir pelo "?" não regrava a página', async () => {

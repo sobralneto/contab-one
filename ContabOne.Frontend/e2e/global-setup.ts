@@ -13,6 +13,15 @@ const CREDENCIAIS_SEED = [
   { email: 'usuario@nfse.local', senha: 'Admin123!' },
 ]
 
+// Espelha PaginaFerramenta em src/api/types.ts — as páginas de rota de
+// ferramenta (/f/:produto/...), cuja chave de "visto" é composta
+// (`${produto}.${pagina}`), diferente das rotas transversais (chave = name).
+// Clientes e Agentes NÃO entram aqui: não são páginas de ferramenta, são
+// rotas transversais (`/clientes`, `/agentes`) — a chave delas é a bare
+// (`clientes`, `agentes`), já coberta por chavesTransversais abaixo.
+const PAGINAS_FERRAMENTA = ['visao-geral', 'execucoes', 'configuracao', 'regras']
+const PRODUTOS_SEEDADOS = ['nfse', 'det']
+
 /**
  * Marca a explicação de todas as páginas como já vista, para os três usuários
  * do seed.
@@ -23,11 +32,20 @@ const CREDENCIAIS_SEED = [
  * events` em qualquer teste que clique em algo. O tour é comportamento
  * legítimo do produto; quem tem que se preparar é o teste.
  *
- * A lista de páginas sai de EXPLICACOES_PAGINA, e não de um array copiado
- * aqui: página nova com explicação passa a ser coberta sozinha.
+ * As chaves transversais (usuários, admin/*) saem de EXPLICACOES_PAGINA, e
+ * não de um array copiado aqui — página nova com explicação passa a ser
+ * coberta sozinha. As de ferramenta são compostas (`nfse.clientes`, não só
+ * `clientes`) e por isso precisam do cruzamento explícito com os produtos
+ * do seed; marcar uma combinação que o produto não declara é inofensivo.
  */
 async function marcarTourComoVisto(): Promise<void> {
-  const paginas = Object.keys(EXPLICACOES_PAGINA)
+  const chavesTransversais = Object.keys(EXPLICACOES_PAGINA).filter(
+    (chave) => !PAGINAS_FERRAMENTA.includes(chave),
+  )
+  const chavesFerramenta = PRODUTOS_SEEDADOS.flatMap((produto) =>
+    PAGINAS_FERRAMENTA.map((pagina) => `${produto}.${pagina}`),
+  )
+  const paginas = [...chavesTransversais, ...chavesFerramenta]
 
   for (const { email, senha } of CREDENCIAIS_SEED) {
     const respLogin = await fetch(`${API_URL}/api/auth/login`, {

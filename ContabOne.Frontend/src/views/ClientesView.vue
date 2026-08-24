@@ -421,7 +421,7 @@ onMounted(() => {
 .col-escritorio { font-size: 13px; color: var(--text-secondary); }
 .col-cnpj { width: 140px; font-size: 13px; }
 .col-data { width: 100px; font-size: 12px; line-height: 1.5; }
-.col-actions { width: 60px; text-align: right; }
+.col-actions { width: 76px; text-align: right; display: flex; justify-content: flex-end; gap: 4px; flex-wrap: nowrap; }
 
 .btn-icon {
   background: none; border: 1px solid var(--border); cursor: pointer;

@@ -54,13 +54,15 @@ public static class DataHelpers
         => db.Produtos.First(p => p.Codigo == codigo);
 
     public static Produto CriarProduto(AppDbContext db, string codigo,
-        string nome = "Produto Teste", bool ativo = true)
+        string nome = "Produto Teste", bool ativo = true, string dominioCodigo = "fiscal")
     {
         var produto = new Produto
         {
             Codigo = codigo,
             Nome = nome,
             Descricao = "Produto de teste " + codigo,
+            DominioCodigo = dominioCodigo,
+            Paginas = [.. PaginaFerramenta.Todas],
             Ativo = ativo,
         };
         db.Produtos.Add(produto);

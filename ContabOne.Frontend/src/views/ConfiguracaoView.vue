@@ -106,12 +106,15 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { obterConfiguracao, salvarConfiguracao } from '@/api/endpoints/configuracao'
 import { listarEscritorios } from '@/api/endpoints/admin'
 import type { PlanoLimites, EscritorioDto } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
+// Configuração é por ferramenta — :produto vem da rota /f/:produto/configuracao.
+const produtoCodigo = useRoute().params.produto as string
 
 const loading = ref(true)
 const salvando = ref(false)
@@ -135,7 +138,7 @@ async function carregar() {
   loading.value = true
   erro.value = ''
   try {
-    const cfg = await obterConfiguracao(escritorioId.value ?? undefined)
+    const cfg = await obterConfiguracao(produtoCodigo, escritorioId.value ?? undefined)
     plano.value = cfg.plano
     const valores = cfg.valores
     if (valores.tipos) {
@@ -191,6 +194,7 @@ async function salvar() {
         gerar_pdf: form.gerar_pdf ? 'true' : 'false',
         dias_busca_padrao: String(diasBuscaPadrao),
       },
+      produtoCodigo,
       escritorioId.value ?? undefined,
     )
     salvo.value = true

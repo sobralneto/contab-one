@@ -18,6 +18,7 @@
           <tr>
             <th>Nome</th>
             <th>Código</th>
+            <th>Domínio</th>
             <th>Descrição</th>
             <th class="text-right">Agentes ativos</th>
             <th class="text-right">Ordem</th>
@@ -29,6 +30,7 @@
           <tr v-for="p in produtos" :key="p.id" :class="{ 'linha-inativa': !p.ativo }">
             <td class="col-nome">{{ p.nome }}</td>
             <td><code class="codigo">{{ p.codigo }}_</code></td>
+            <td>{{ p.dominioNome }}</td>
             <td class="col-desc">{{ p.descricao || '—' }}</td>
             <td class="text-right tabular-nums">{{ p.totalAgentes }}</td>
             <td class="text-right tabular-nums">{{ p.ordem }}</td>
@@ -96,6 +98,33 @@
               <input v-model="form.descricao" maxlength="200" />
             </div>
 
+            <div class="form-field">
+              <label>Domínio <span class="req">*</span></label>
+              <select v-model="form.dominioCodigo" required>
+                <option value="" disabled>Selecione…</option>
+                <option v-for="d in dominios" :key="d.codigo" :value="d.codigo">{{ d.nome }}</option>
+              </select>
+              <span class="form-hint">
+                Departamento do escritório contábil que a ferramenta atende —
+                agrupa o menu e o hub do painel.
+              </span>
+            </div>
+
+            <div class="form-field">
+              <label>Páginas <span class="req">*</span></label>
+              <div class="paginas-checklist">
+                <label v-for="pg in PAGINAS_DISPONIVEIS" :key="pg.valor" class="checkbox-label">
+                  <input type="checkbox" :value="pg.valor" v-model="form.paginas" />
+                  {{ pg.label }}
+                </label>
+              </div>
+              <span class="form-hint">
+                O que a ferramenta ainda não expõe fica de fora do submenu —
+                marcar aqui não cria a tela, só libera o item de menu para ela.
+              </span>
+              <span class="form-erro" v-if="erroPaginas">{{ erroPaginas }}</span>
+            </div>
+
             <div class="form-row">
               <div class="form-field">
                 <label>Ordem no seletor</label>
@@ -129,18 +158,42 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import EstadoVazio from '@/components/comum/EstadoVazio.vue'
-import { listarProdutosAdmin, criarProduto, atualizarProduto } from '@/api/endpoints/admin'
-import type { ProdutoAdminDto } from '@/api/types'
+import { listarProdutosAdmin, criarProduto, atualizarProduto, listarDominios } from '@/api/endpoints/admin'
+import type { DominioDto, PaginaFerramenta, ProdutoAdminDto } from '@/api/types'
 
 const loading = ref(true)
 const produtos = ref<ProdutoAdminDto[]>([])
+const dominios = ref<DominioDto[]>([])
 
 const modalAberto = ref(false)
 const editando = ref(false)
 const produtoEdit = ref<ProdutoAdminDto | null>(null)
 const salvando = ref(false)
 
-const form = reactive({ codigo: '', nome: '', descricao: '', ativo: true, ordem: 0 })
+// Espelha PaginaFerramenta.Todas no servidor.
+// Clientes e Agentes ficam de fora: não são páginas de ferramenta — as duas
+// telas mostram dado do escritório inteiro, fora de /f/:produto/… (design.md).
+const PAGINAS_DISPONIVEIS: { valor: PaginaFerramenta; label: string }[] = [
+  { valor: 'visao-geral', label: 'Visão geral' },
+  { valor: 'execucoes', label: 'Execuções' },
+  { valor: 'configuracao', label: 'Configuração' },
+  { valor: 'regras', label: 'Regras de coleta (restrita a PlatformAdmin)' },
+]
+
+const form = reactive({
+  codigo: '',
+  nome: '',
+  descricao: '',
+  dominioCodigo: '',
+  paginas: [] as PaginaFerramenta[],
+  ativo: true,
+  ordem: 0,
+})
+
+const tentouSalvar = ref(false)
+const erroPaginas = computed(() =>
+  tentouSalvar.value && form.paginas.length === 0 ? 'Selecione ao menos uma página.' : '',
+)
 
 // Espelha ProdutoCodigo.Valido no servidor. O servidor continua sendo a
 // autoridade — isto só evita a ida ao backend para errar o óbvio.
@@ -158,7 +211,10 @@ const erroCodigo = computed(() => {
 })
 
 const podeSalvar = computed(() =>
-  form.nome.trim().length > 0 && (editando.value || (!!form.codigo && !erroCodigo.value)),
+  form.nome.trim().length > 0 &&
+  !!form.dominioCodigo &&
+  form.paginas.length > 0 &&
+  (editando.value || (!!form.codigo && !erroCodigo.value)),
 )
 
 // O código é comparado byte a byte no servidor, então normalizar na digitação
@@ -170,7 +226,12 @@ function normalizarCodigo() {
 async function carregar() {
   loading.value = true
   try {
-    produtos.value = await listarProdutosAdmin()
+    const [listaProdutos, listaDominios] = await Promise.all([
+      listarProdutosAdmin(),
+      dominios.value.length > 0 ? Promise.resolve(dominios.value) : listarDominios(),
+    ])
+    produtos.value = listaProdutos
+    dominios.value = listaDominios
   } catch { /* interceptor handles */ } finally {
     loading.value = false
   }
@@ -179,9 +240,12 @@ async function carregar() {
 function abrirCriar() {
   editando.value = false
   produtoEdit.value = null
+  tentouSalvar.value = false
   form.codigo = ''
   form.nome = ''
   form.descricao = ''
+  form.dominioCodigo = ''
+  form.paginas = []
   form.ativo = true
   form.ordem = produtos.value.length + 1
   modalAberto.value = true
@@ -190,9 +254,12 @@ function abrirCriar() {
 function abrirEditar(p: ProdutoAdminDto) {
   editando.value = true
   produtoEdit.value = p
+  tentouSalvar.value = false
   form.codigo = p.codigo
   form.nome = p.nome
   form.descricao = p.descricao
+  form.dominioCodigo = p.dominioCodigo
+  form.paginas = [...p.paginas]
   form.ativo = p.ativo
   form.ordem = p.ordem
   modalAberto.value = true
@@ -203,6 +270,7 @@ function fecharModal() {
 }
 
 async function salvar() {
+  tentouSalvar.value = true
   if (!podeSalvar.value) return
   salvando.value = true
   try {
@@ -211,6 +279,8 @@ async function salvar() {
       await atualizarProduto(produtoEdit.value.id, {
         nome: form.nome,
         descricao: form.descricao,
+        dominioCodigo: form.dominioCodigo,
+        paginas: form.paginas,
         ativo: form.ativo,
         ordem: form.ordem,
       })
@@ -219,6 +289,8 @@ async function salvar() {
         codigo: form.codigo,
         nome: form.nome,
         descricao: form.descricao,
+        dominioCodigo: form.dominioCodigo,
+        paginas: form.paginas,
         ativo: form.ativo,
         ordem: form.ordem,
       })
@@ -283,9 +355,11 @@ onMounted(carregar)
 .form-row .form-field { flex: 1; }
 .form-field { display: flex; flex-direction: column; gap: 4px; }
 .form-field label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
-.form-field input { height: 40px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; font-family: var(--font-family); background: var(--surface-page); color: var(--text-primary); outline: none; transition: border-color 150ms, box-shadow 150ms; }
-.form-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-suave); }
-.form-field input:disabled { opacity: 0.6; cursor: not-allowed; }
+.form-field input, .form-field select { height: 40px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; font-family: var(--font-family); background: var(--surface-page); color: var(--text-primary); outline: none; transition: border-color 150ms, box-shadow 150ms; }
+.form-field input:focus, .form-field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-suave); }
+.form-field input:disabled, .form-field select:disabled { opacity: 0.6; cursor: not-allowed; }
+.paginas-checklist { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.paginas-checklist .checkbox-label { font-size: 13px; }
 .form-hint { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
 .form-hint code { font-family: var(--font-mono); background: var(--surface-page); padding: 1px 5px; border-radius: 3px; }
 .form-erro { font-size: 12px; color: var(--erro); }

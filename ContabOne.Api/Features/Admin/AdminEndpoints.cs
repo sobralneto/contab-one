@@ -29,6 +29,7 @@ public static class AdminEndpoints
         group.MapGet("/produtos", ListarProdutosAsync);
         group.MapPost("/produtos", CriarProdutoAsync);
         group.MapPut("/produtos/{id:guid}", AtualizarProdutoAsync);
+        group.MapGet("/dominios", ListarDominiosAsync);
 
         // Regras
         group.MapGet("/regras", ListarRegrasAsync);
@@ -173,7 +174,7 @@ public static class AdminEndpoints
         // Inclui inativos (ao contrário de /api/produtos): esta é a tela de
         // cadastro, onde reativar um produto precisa ser possível.
         var produtos = await db.Produtos
-            .OrderBy(p => p.Ordem).ThenBy(p => p.Nome)
+            .OrderBy(p => p.Dominio.Ordem).ThenBy(p => p.Ordem).ThenBy(p => p.Nome)
             .Select(p => new
             {
                 p.Id,
@@ -183,11 +184,29 @@ public static class AdminEndpoints
                 p.Ativo,
                 p.Ordem,
                 p.CriadoEm,
+                p.Paginas,
+                DominioCodigo = p.Dominio.Codigo,
+                DominioNome = p.Dominio.Nome,
                 TotalAgentes = p.Agentes.Count(a => a.RevogadoEm == null),
             })
             .ToListAsync();
 
         return Results.Ok(produtos);
+    }
+
+    /// <summary>
+    /// Alimenta o seletor de domínio do formulário de cadastro/edição de
+    /// ferramenta. Não é `/api/produtos` de propósito: aquele é escopado por
+    /// papel e contratação, este é só o vocabulário fixo de domínios.
+    /// </summary>
+    private static async Task<IResult> ListarDominiosAsync(AppDbContext db)
+    {
+        var dominios = await db.Dominios
+            .OrderBy(d => d.Ordem)
+            .Select(d => new { d.Codigo, d.Nome, d.Ordem, d.Icone })
+            .ToListAsync();
+
+        return Results.Ok(dominios);
     }
 
     private static async Task<IResult> CriarProdutoAsync(
@@ -207,11 +226,19 @@ public static class AdminEndpoints
                 ["codigo"] = [$"Já existe um produto com o código '{codigo}'"],
             });
 
+        if (!await db.Dominios.AnyAsync(d => d.Codigo == req.DominioCodigo))
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["dominioCodigo"] = [$"Domínio '{req.DominioCodigo}' não existe"],
+            });
+
         var produto = new Produto
         {
             Codigo = codigo,
             Nome = req.Nome.Trim(),
             Descricao = req.Descricao?.Trim() ?? string.Empty,
+            DominioCodigo = req.DominioCodigo,
+            Paginas = (req.Paginas ?? []).Distinct().ToArray(),
             Ativo = req.Ativo ?? true,
             Ordem = req.Ordem ?? 0,
         };
@@ -246,10 +273,18 @@ public static class AdminEndpoints
         if (produto == null)
             return Results.NotFound();
 
+        if (req.DominioCodigo != null && !await db.Dominios.AnyAsync(d => d.Codigo == req.DominioCodigo))
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["dominioCodigo"] = [$"Domínio '{req.DominioCodigo}' não existe"],
+            });
+
         produto.Nome = req.Nome.Trim();
         produto.Descricao = req.Descricao?.Trim() ?? string.Empty;
         if (req.Ativo.HasValue) produto.Ativo = req.Ativo.Value;
         if (req.Ordem.HasValue) produto.Ordem = req.Ordem.Value;
+        if (req.DominioCodigo != null) produto.DominioCodigo = req.DominioCodigo;
+        if (req.Paginas != null) produto.Paginas = req.Paginas.Distinct().ToArray();
 
         await db.SaveChangesAsync();
 
@@ -261,6 +296,8 @@ public static class AdminEndpoints
             produto.Descricao,
             produto.Ativo,
             produto.Ordem,
+            produto.Paginas,
+            produto.DominioCodigo,
         });
     }
 
@@ -670,6 +707,8 @@ public record CriarProdutoRequest
     public string Codigo { get; init; } = string.Empty;
     public string Nome { get; init; } = string.Empty;
     public string? Descricao { get; init; }
+    public string DominioCodigo { get; init; } = string.Empty;
+    public List<string>? Paginas { get; init; }
     public bool? Ativo { get; init; }
     public int? Ordem { get; init; }
 }
@@ -678,6 +717,10 @@ public record AtualizarProdutoRequest
 {
     public string Nome { get; init; } = string.Empty;
     public string? Descricao { get; init; }
+    /// <summary>Null preserva o domínio atual — só troca quando informado.</summary>
+    public string? DominioCodigo { get; init; }
+    /// <summary>Null preserva as páginas atuais — só troca quando informado.</summary>
+    public List<string>? Paginas { get; init; }
     public bool? Ativo { get; init; }
     public int? Ordem { get; init; }
 }
@@ -693,6 +736,10 @@ public class CriarProdutoRequestValidator : AbstractValidator<CriarProdutoReques
                        + "sem '_', que é o separador da chave de API");
         RuleFor(x => x.Nome).NotEmpty().MaximumLength(80);
         RuleFor(x => x.Descricao).MaximumLength(200);
+        RuleFor(x => x.DominioCodigo).NotEmpty().WithMessage("Domínio é obrigatório");
+        RuleForEach(x => x.Paginas)
+            .Must(PaginaFerramenta.Valida)
+            .WithMessage(p => $"Página '{p}' desconhecida — use uma de: {string.Join(", ", PaginaFerramenta.Todas)}");
     }
 }
 
@@ -702,6 +749,11 @@ public class AtualizarProdutoRequestValidator : AbstractValidator<AtualizarProdu
     {
         RuleFor(x => x.Nome).NotEmpty().MaximumLength(80);
         RuleFor(x => x.Descricao).MaximumLength(200);
+        RuleFor(x => x.DominioCodigo).NotEmpty().When(x => x.DominioCodigo != null)
+            .WithMessage("Domínio não pode ser vazio");
+        RuleForEach(x => x.Paginas)
+            .Must(PaginaFerramenta.Valida)
+            .WithMessage(p => $"Página '{p}' desconhecida — use uma de: {string.Join(", ", PaginaFerramenta.Todas)}");
     }
 }
 

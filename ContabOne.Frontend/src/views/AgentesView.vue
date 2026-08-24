@@ -197,6 +197,11 @@ const produtoEscolhido = computed(() =>
 
 // Ferramentas CONTRATADAS pelo escritório em questão — para o admin isso
 // muda a cada escritório escolhido, então a lista é recarregada, não cacheada.
+//
+// A API devolve o catálogo ativo INTEIRO (a navegação por domínio precisa do
+// que NÃO foi contratado também, para mostrar como indisponível no hub) —
+// aqui, que é o seletor de uma chave nova, o filtro por `contratado` é quem
+// decide o que aparece.
 async function carregarProdutos() {
   produtoSelecionado.value = null
   produtos.value = []
@@ -205,7 +210,8 @@ async function carregarProdutos() {
 
   loadingProdutos.value = true
   try {
-    produtos.value = await listarProdutos(escritorioSelecionado.value ?? undefined)
+    const catalogo = await listarProdutos(escritorioSelecionado.value ?? undefined)
+    produtos.value = catalogo.filter((p) => p.contratado)
     if (produtos.value.length === 1) produtoSelecionado.value = produtos.value[0].id
   } catch { /* interceptor handles */ } finally {
     loadingProdutos.value = false

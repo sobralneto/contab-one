@@ -155,6 +155,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import EstadoVazio from '@/components/comum/EstadoVazio.vue'
 import {
   listarExecucoesAgrupadas,
@@ -170,6 +171,8 @@ import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const isAdmin = auth.isPlatformAdmin
+// Execuções são por ferramenta — :produto vem da rota /f/:produto/execucoes.
+const produtoCodigo = useRoute().params.produto as string
 
 const loading = ref(true)
 const gruposEscritorio = ref<ExecucaoGrupoEscritorio[]>([])
@@ -240,7 +243,7 @@ function formatDuracao(ms: number | null): string {
 async function carregar() {
   loading.value = true
   try {
-    const grupos = await listarExecucoesAgrupadas(isAdmin ? 'escritorio' : 'cliente')
+    const grupos = await listarExecucoesAgrupadas(isAdmin ? 'escritorio' : 'cliente', produtoCodigo)
     if (isAdmin) {
       gruposEscritorio.value = grupos as ExecucaoGrupoEscritorio[]
     } else {

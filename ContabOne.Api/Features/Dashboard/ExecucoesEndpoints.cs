@@ -4,6 +4,13 @@ using ContabOne.Api.Infra;
 
 namespace ContabOne.Api.Features.Dashboard;
 
+/// <summary>
+/// `produtoCodigo` é OPCIONAL de propósito: a tela de Execuções de uma
+/// ferramenta sempre manda (via <see cref="Agente.ProdutoId"/>, resolvido
+/// pelo código), mas o resumo da visão geral do dashboard continua
+/// consultando sem filtro, exatamente como antes de existir mais de uma
+/// ferramenta.
+/// </summary>
 public static class ExecucoesEndpoints
 {
     public static RouteGroupBuilder MapExecucoesEndpoints(this RouteGroupBuilder group)
@@ -15,28 +22,47 @@ public static class ExecucoesEndpoints
 
     private static async Task<IResult> ListarAsync(
         string? agruparPor,
+        string? produtoCodigo,
         int pagina = 1,
         int tamanho = 20,
         AppDbContext db = null!)
     {
+        // produtoCodigo é opcional: quem chama sem ele (hoje, só o resumo da
+        // visão geral) continua vendo todas as execuções do escritório,
+        // comportamento anterior a esta ferramenta ter mais de um produto.
+        Guid? produtoId = null;
+        if (produtoCodigo != null)
+        {
+            produtoId = await db.Produtos
+                .Where(p => p.Codigo == produtoCodigo)
+                .Select(p => (Guid?)p.Id)
+                .FirstOrDefaultAsync();
+            if (produtoId == null)
+                return Results.BadRequest(new { erro = $"Ferramenta '{produtoCodigo}' não existe" });
+        }
+
         // Agrupamento por escritório (admin) ou por cliente (escritório/usuário).
         // Sem `agruparPor`, mantém o formato plano original (usado pelo dashboard).
         if (agruparPor == "escritorio")
         {
-            var grupos = await AgruparPorEscritorioAsync(db);
+            var grupos = await AgruparPorEscritorioAsync(db, produtoId);
             return Results.Ok(new { grupos });
         }
 
         if (agruparPor == "cliente")
         {
-            var grupos = await AgruparPorClienteAsync(db);
+            var grupos = await AgruparPorClienteAsync(db, produtoId);
             return Results.Ok(new { grupos });
         }
 
         tamanho = Math.Clamp(tamanho, 1, 100);
-        var total = await db.Execucoes.CountAsync();
+        var baseQuery = produtoId == null
+            ? db.Execucoes.AsQueryable()
+            : db.Execucoes.Where(e => e.Agente.ProdutoId == produtoId.Value);
 
-        var execucoes = await db.Execucoes
+        var total = await baseQuery.CountAsync();
+
+        var execucoes = await baseQuery
             .OrderByDescending(e => e.IniciadoEm)
             .Skip((pagina - 1) * tamanho)
             .Take(tamanho)
@@ -60,9 +86,11 @@ public static class ExecucoesEndpoints
         return Results.Ok(new { total, pagina, tamanho, dados = execucoes });
     }
 
-    private static async Task<List<object>> AgruparPorEscritorioAsync(AppDbContext db)
+    private static async Task<List<object>> AgruparPorEscritorioAsync(AppDbContext db, Guid? produtoId)
     {
-        var execucoes = await db.Execucoes
+        var execucoes = await (produtoId == null
+                ? db.Execucoes.AsQueryable()
+                : db.Execucoes.Where(e => e.Agente.ProdutoId == produtoId.Value))
             .OrderByDescending(e => e.IniciadoEm)
             .Select(e => new
             {
@@ -100,9 +128,11 @@ public static class ExecucoesEndpoints
             .ToList();
     }
 
-    private static async Task<List<object>> AgruparPorClienteAsync(AppDbContext db)
+    private static async Task<List<object>> AgruparPorClienteAsync(AppDbContext db, Guid? produtoId)
     {
-        var linhas = await db.ExecucaoMetricas
+        var linhas = await (produtoId == null
+                ? db.ExecucaoMetricas.AsQueryable()
+                : db.ExecucaoMetricas.Where(m => m.Execucao.Agente.ProdutoId == produtoId.Value))
             .GroupBy(m => new { m.ClienteId, m.Cliente.Nome, m.ExecucaoId, m.Execucao.Status })
             .Select(g => new
             {

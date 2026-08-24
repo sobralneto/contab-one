@@ -3,6 +3,7 @@ using System;
 using ContabOne.Api.Infra;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ContabOne.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260823155635_AdicionarDominioEPaginasAoProduto")]
+    partial class AdicionarDominioEPaginasAoProduto
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -160,9 +163,6 @@ namespace ContabOne.Api.Migrations
                     b.Property<Guid>("EscritorioId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("ProdutoId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Chave")
                         .HasColumnType("text");
 
@@ -170,9 +170,7 @@ namespace ContabOne.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.HasKey("EscritorioId", "ProdutoId", "Chave");
-
-                    b.HasIndex("ProdutoId");
+                    b.HasKey("EscritorioId", "Chave");
 
                     b.ToTable("ConfiguracoesEscritorio");
                 });
@@ -653,15 +651,7 @@ namespace ContabOne.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ContabOne.Api.Domain.Produto", "Produto")
-                        .WithMany()
-                        .HasForeignKey("ProdutoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.Navigation("Escritorio");
-
-                    b.Navigation("Produto");
                 });
 
             modelBuilder.Entity("ContabOne.Api.Domain.Escritorio", b =>

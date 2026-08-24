@@ -111,6 +111,28 @@ public static class SeedEndpoints
                 await db.SaveChangesAsync();
             }
 
+            // Contrata toda ferramenta ativa — mesmo critério do backfill da
+            // migration EscritorioProdutoContratado. Sem isto, um escritório
+            // de seed criado depois daquela migration nasce sem nenhuma
+            // ferramenta contratada, e /api/produtos devolve tudo com
+            // `contratado: false`: nenhuma página de ferramenta fica
+            // alcançável, nem pelo seletor de chave de agente.
+            var idsAtivos = await db.Produtos.Where(p => p.Ativo).Select(p => p.Id).ToListAsync();
+            var jaContratados = await db.EscritorioProdutos
+                .IgnoreQueryFilters()
+                .Where(ep => ep.EscritorioId == escritorio.Id && ep.DesabilitadoEm == null)
+                .Select(ep => ep.ProdutoId)
+                .ToListAsync();
+            foreach (var produtoId in idsAtivos.Except(jaContratados))
+            {
+                db.EscritorioProdutos.Add(new EscritorioProduto
+                {
+                    EscritorioId = escritorio.Id,
+                    ProdutoId = produtoId,
+                });
+            }
+            await db.SaveChangesAsync();
+
             // 2. PlatformAdmin
             var admin = await userManager.FindByEmailAsync("admin@nfse.local");
             if (admin == null)

@@ -95,7 +95,7 @@ async function onSubmit() {
     // O token novo já vem sem a flag; setAccessToken a ressincroniza, o que
     // libera o guard para deixar a navegação sair desta tela.
     auth.setAccessToken(res.accessToken)
-    router.replace('/dashboard')
+    router.replace('/')
   } catch (err: unknown) {
     const e = err as {
       response?: { data?: { errors?: Record<string, string[]>; erro?: string }; status?: number }

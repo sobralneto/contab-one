@@ -15,13 +15,16 @@ export async function listarExecucoes(params?: {
   return data
 }
 
+// `produtoCodigo` escopa a lista pela ferramenta da tela — sem ele a
+// execução de qualquer ferramenta do escritório apareceria misturada.
 export async function listarExecucoesAgrupadas(
   agruparPor: 'escritorio' | 'cliente',
+  produtoCodigo: string,
 ): Promise<ExecucaoGrupoEscritorio[] | ExecucaoGrupoCliente[]> {
   const { data } = await apiClient.get<
     | { grupos: ExecucaoGrupoEscritorio[] }
     | { grupos: ExecucaoGrupoCliente[] }
-  >('/api/execucoes', { params: { agruparPor } })
+  >('/api/execucoes', { params: { agruparPor, produtoCodigo } })
   return data.grupos
 }
 

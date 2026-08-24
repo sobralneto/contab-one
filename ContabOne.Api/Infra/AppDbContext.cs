@@ -17,6 +17,7 @@ public class AppDbContext : IdentityDbContext<Usuario, IdentityRole<Guid>, Guid>
 
     public DbSet<Escritorio> Escritorios => Set<Escritorio>();
     public DbSet<Plano> Planos => Set<Plano>();
+    public DbSet<Dominio> Dominios => Set<Dominio>();
     public DbSet<Produto> Produtos => Set<Produto>();
     public DbSet<EscritorioProduto> EscritorioProdutos => Set<EscritorioProduto>();
     public DbSet<Agente> Agentes => Set<Agente>();
@@ -82,12 +83,19 @@ public class AppDbContext : IdentityDbContext<Usuario, IdentityRole<Guid>, Guid>
             e.Property(x => x.PrecoMensal).HasColumnType("decimal(10,2)");
         });
 
+        modelBuilder.Entity<Dominio>(e =>
+        {
+            e.HasKey(x => x.Codigo);
+        });
+
         modelBuilder.Entity<Produto>(e =>
         {
             e.HasKey(x => x.Id);
             // Catálogo global do hub: sem query filter de tenant de propósito
             // — todo escritório enxerga as mesmas ferramentas.
             e.HasIndex(x => x.Codigo).IsUnique();
+            e.HasOne(x => x.Dominio).WithMany(d => d.Produtos)
+                .HasForeignKey(x => x.DominioCodigo).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<EscritorioProduto>(e =>
@@ -141,8 +149,9 @@ public class AppDbContext : IdentityDbContext<Usuario, IdentityRole<Guid>, Guid>
 
         modelBuilder.Entity<ConfiguracaoEscritorio>(e =>
         {
-            e.HasKey(x => new { x.EscritorioId, x.Chave });
+            e.HasKey(x => new { x.EscritorioId, x.ProdutoId, x.Chave });
             e.HasOne(x => x.Escritorio).WithMany(es => es.Configuracoes).HasForeignKey(x => x.EscritorioId);
+            e.HasOne(x => x.Produto).WithMany().HasForeignKey(x => x.ProdutoId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Alerta>(e =>

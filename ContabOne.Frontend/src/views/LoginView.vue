@@ -156,7 +156,7 @@ async function onSubmit() {
     if (redirect && interno && redirect !== "/login") {
       router.replace(redirect);
     } else {
-      router.replace("/dashboard");
+      router.replace("/");
     }
   } catch (err: unknown) {
     const e = err as {

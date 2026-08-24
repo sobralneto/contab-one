@@ -73,12 +73,17 @@ public static class AgentEndpoints
             .OrderByDescending(r => r.Versao)
             .FirstOrDefaultAsync();
 
-        // Configuração do escritório — dicionário cru {chave: valor}, aditivo
-        // por natureza: agente antigo ignora o bloco, agente novo conhece as
-        // chaves que conhece (design.md, Decisão 5). Vazio quando nada salvo.
-        var configuracao = await db.ConfiguracoesEscritorio
-            .Where(c => c.EscritorioId == escritorioId)
-            .ToDictionaryAsync(c => c.Chave, c => c.Valor);
+        // Configuração do escritório PARA A FERRAMENTA deste agente —
+        // dicionário cru {chave: valor}, aditivo por natureza: agente antigo
+        // ignora o bloco, agente novo conhece as chaves que conhece
+        // (design.md, Decisão 5). Vazio quando nada salvo ou quando o agente
+        // já não existe mais (caminho de emergência, não deveria acontecer
+        // com a chave já autenticada).
+        var configuracao = agente == null
+            ? new Dictionary<string, string>()
+            : await db.ConfiguracoesEscritorio
+                .Where(c => c.EscritorioId == escritorioId && c.ProdutoId == agente.ProdutoId)
+                .ToDictionaryAsync(c => c.Chave, c => c.Valor);
 
         // Cifrada com a chave derivada da própria API key deste request —
         // ver ConfiguracaoCipher. O header já foi validado por

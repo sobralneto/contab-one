@@ -4,11 +4,11 @@ import type {
   CriarEscritorioRequest,
   AtualizarEscritorioRequest,
   PlanoDto,
-  ProdutoDto,
   ProdutoAdminDto,
   EscritorioProdutoDto,
   CriarProdutoRequest,
   AtualizarProdutoRequest,
+  DominioDto,
   RegraDto,
   RegraDetalheDto,
   PublicarRegraRequest,
@@ -93,8 +93,14 @@ export async function criarProduto(
 export async function atualizarProduto(
   id: string,
   req: AtualizarProdutoRequest,
-): Promise<ProdutoDto> {
-  const { data } = await apiClient.put<ProdutoDto>(`/api/admin/produtos/${id}`, req)
+): Promise<Pick<ProdutoAdminDto, 'id' | 'codigo' | 'nome' | 'descricao' | 'ativo' | 'ordem' | 'paginas' | 'dominioCodigo'>> {
+  const { data } = await apiClient.put(`/api/admin/produtos/${id}`, req)
+  return data
+}
+
+// Vocabulário fixo de domínios, para o seletor do formulário de ferramenta.
+export async function listarDominios(): Promise<DominioDto[]> {
+  const { data } = await apiClient.get<DominioDto[]>('/api/admin/dominios')
   return data
 }
 

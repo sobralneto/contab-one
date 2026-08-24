@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { decodeJwt, isJwtExpired } from '@/api/jwt'
+import { useCatalogoStore } from '@/stores/catalogo'
 import type { UsuarioDto, Papel } from '@/api/types'
 
 // sessionStorage (não localStorage): sobrevive a reload/HMR na mesma aba,
@@ -75,6 +76,10 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = null
     usuario.value = null
     sessionStorage.removeItem(ACCESS_TOKEN_KEY)
+
+    // O catálogo é por sessão: sem isto, o menu de um escritório sobreviveria
+    // ao login seguinte, de outro escritório, na mesma aba.
+    useCatalogoStore().limpar()
   }
 
   function canAccess(requiredRoles: Papel[]): boolean {

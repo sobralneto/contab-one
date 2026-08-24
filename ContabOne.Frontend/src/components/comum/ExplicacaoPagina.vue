@@ -48,8 +48,26 @@ const vistas = ref<string[] | null>(null)
 const carregouVistas = ref(false)
 const abertoManualmente = ref(false)
 
-const paginaAtual = computed(() => (route.name ? String(route.name) : ''))
-const explicacao = computed(() => EXPLICACOES_PAGINA[paginaAtual.value] ?? null)
+// Rota de ferramenta (/f/:produto/...): a identidade da página é
+// `${produto}.${pagina}` — DET e NFS-e têm cada um o próprio "visto" para a
+// mesma tela, mesmo que o texto explicativo seja o genérico dos dois. Rota
+// transversal (sem :produto) continua identificada só pelo `name`, como
+// sempre foi.
+const paginaAtual = computed(() => {
+  const produto = route.params.produto as string | undefined
+  const pagina = (route.meta.pagina as string | undefined) ?? (route.name ? String(route.name) : '')
+  return produto ? `${produto}.${pagina}` : pagina
+})
+
+// O texto tenta a chave específica da ferramenta primeiro e cai para o
+// genérico da página — é o que deixa uma ferramenta nova (DET, e as
+// seguintes) sem precisar de entrada própria em EXPLICACOES_PAGINA.
+const explicacao = computed(() => {
+  const especifica = EXPLICACOES_PAGINA[paginaAtual.value]
+  if (especifica) return especifica
+  const generico = route.meta.pagina as string | undefined
+  return generico ? (EXPLICACOES_PAGINA[generico] ?? null) : null
+})
 
 const nota = computed(() => {
   const porPapel = explicacao.value?.notaPorPapel

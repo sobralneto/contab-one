@@ -44,12 +44,14 @@ export async function criarEscritorioViaApi(nome: string): Promise<void> {
 
 /**
  * Login pelo formulário real (o fluxo inteiro — inclui o cookie de refresh
- * HttpOnly que o teste de reload precisa).
+ * HttpOnly que o teste de reload precisa). Pousa no hub (`/`) — é para lá
+ * que o login manda por padrão desde que a navegação passou a ser agrupada
+ * por domínio.
  */
 export async function login(page: Page, email: string, senha: string): Promise<void> {
   await page.goto('/login')
   await page.fill('#email', email)
   await page.fill('#password', senha)
   await page.click('.btn-login')
-  await page.waitForURL(/\/dashboard/)
+  await page.waitForURL((url) => url.pathname === '/')
 }
