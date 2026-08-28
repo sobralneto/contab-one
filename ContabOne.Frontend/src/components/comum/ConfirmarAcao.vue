@@ -164,7 +164,7 @@ const confirmInput = ref('')
   border-radius: var(--radius-sm);
   font-size: 14px;
   font-family: var(--font-family);
-  background: var(--surface-page);
+  background: var(--surface-card);
   color: var(--text-primary);
   outline: none;
 }

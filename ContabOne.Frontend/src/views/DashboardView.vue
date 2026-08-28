@@ -312,7 +312,7 @@ onMounted(carregarTudo)
   border-radius: var(--radius-sm);
   font-size: 13px;
   font-family: var(--font-family);
-  background: var(--surface-page);
+  background: var(--surface-card);
   color: var(--text-primary);
   outline: none;
   transition: border-color 150ms, box-shadow 150ms;

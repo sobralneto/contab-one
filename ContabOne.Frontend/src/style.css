@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import './assets/styles/tokens.css';
+@import './assets/styles/components.css';
 
 /* ── Dark mode variant (class-based, applied to <html>) ── */
 @variant dark (&:where(.dark, .dark *));
@@ -101,7 +102,7 @@ h2 {
 }
 
 .dark .glass {
-  background: rgba(30, 41, 59, 0.7);
+  background: rgba(37, 37, 38, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 

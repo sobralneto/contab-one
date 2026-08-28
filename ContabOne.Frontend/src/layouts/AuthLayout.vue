@@ -56,10 +56,10 @@ import logoVertical from "@/assets/contab-one-vertical.png";
 .dark .auth-bg {
   background: linear-gradient(
     135deg,
-    #020617 0%,
-    #0f172a 30%,
-    #1e293b 70%,
-    #0f172a 100%
+    #171717 0%,
+    #1f1f1f 30%,
+    #262626 70%,
+    #1f1f1f 100%
   );
 }
 

@@ -18,6 +18,8 @@
      têm 60px e se encostam, então compartilham a cor para formar uma barra
      contínua atravessando a tela. */
   --surface-topo:     #ffffff;
+  /* Cabeçalho das tabelas: um tom um pouco mais claro que --surface-page. */
+  --surface-header:   #F8F8F8;
 
   /* ── Sidebar ──
      A barra acompanha o tema: clara no modo claro, escura no escuro.
@@ -88,31 +90,35 @@
    somem. */
 .dark {
   /* Rampa de superfícies, do mais escuro ao mais claro:
-       #020617  faixa do topo (logo + título)
-       #0A1020  menu e conteúdo — mesmo tom, separados só pela borda
-       #1E293B  cards
+       #171717  faixa do topo (logo + título)
+       #1a1a1a  menu e conteúdo — mesmo tom, separados só pela borda
+       #252526  cards
      A faixa do topo emoldura a tela; menu e conteúdo formam um plano só, e os
-     cards são a única superfície que se levanta dele. */
-  --surface-page:     #0A1020;
-  --surface-card:     #1e293b;
-  --surface-topo:     #020617;
+     cards são a única superfície que se levanta dele.
+     Cinza neutro (R=G=B) em toda a rampa, não slate — a paleta anterior
+     (baseada no slate do Tailwind) tinha viés de azul; a referência aqui é o
+     tema Dark+ do VS Code, que é neutro. */
+  --surface-page:     #1a1a1a;
+  --surface-card:     #252526;
+  --surface-header:   #202020;
+  --surface-topo:     #171717;
 
-  --surface-sidebar:  #0A1020; /* igual a --surface-page, de propósito */
+  --surface-sidebar:  #1a1a1a; /* igual a --surface-page, de propósito */
   --surface-sidebar-hover: rgba(255, 255, 255, 0.06);
   --sidebar-border:   rgba(255, 255, 255, 0.06);
-  --sidebar-text:     #f1f5f9;
+  --sidebar-text:     #d4d4d4;
   --sidebar-text-suave: rgba(255, 255, 255, 0.55);
   --sidebar-text-fraco: rgba(255, 255, 255, 0.4);
   --sidebar-ativo-bg: rgba(52, 115, 74, 0.28);
   --sidebar-ativo-text: #6EBF6B;  /* 8,6:1 sobre a sidebar */
   --sidebar-ativo-marca: #6EBF6B;
 
-  --border:           #334155;
-  --border-forte:     #475569;
+  --border:           #3c3c3c;
+  --border-forte:     #525252;
 
-  --text-primary:     #f1f5f9;
-  --text-secondary:   #94a3b8;
-  --text-muted:       #64748b;
+  --text-primary:     #d4d4d4;
+  --text-secondary:   #a0a0a0;
+  --text-muted:       #8a8a8a;
 
   --accent:           #5FA65D;
   --accent-hover:     #6EBF6B;

@@ -1,0 +1,122 @@
+/* ── Componentes de página — Contab One ──
+   Classes repetidas em quase toda view com tabela/modal (Clientes, Agentes,
+   Usuários, Execuções, Escritórios, Planos, Produtos, Regras). Views ainda
+   podem sobrescrever pontualmente no próprio <style scoped>: por ter o atributo
+   data-v-*, um seletor local sempre vence o global de mesma classe. */
+
+/* ── Cabeçalho de view ── */
+.view-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.view-header h1 { margin: 0; }
+
+/* ── Botões ── */
+.btn-primary {
+  height: 38px; padding: 0 18px;
+  background: var(--accent-gradient);
+  color: var(--accent-gradient-texto); border: none;
+  border-radius: var(--radius-md); font-size: 13px; font-weight: 600;
+  font-family: var(--font-family); cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px;
+  box-shadow: 0 2px 8px rgba(var(--accent-rgb), 0.25);
+  transition: all 150ms ease;
+}
+.btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.35); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.btn-secondary {
+  height: 38px; padding: 0 16px;
+  background: transparent; color: var(--text-secondary);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 13px; font-family: var(--font-family); cursor: pointer;
+  transition: all 120ms;
+}
+.btn-secondary:hover { background: var(--surface-page); }
+
+/* Botão de ícone solto numa célula de tabela (editar/excluir). */
+.btn-icon {
+  background: none; border: 1px solid var(--border); cursor: pointer;
+  padding: 6px; border-radius: 6px; color: var(--text-muted);
+  display: inline-flex; align-items: center; transition: all 120ms;
+}
+.btn-icon:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-suave); }
+.btn-icon--danger:hover { color: var(--erro); border-color: var(--erro); background: var(--erro-suave); }
+
+/* Variante com glifo de texto (✎, 🔑, …) em vez de svg. */
+.btn-edit {
+  background: none; border: 1px solid var(--border); cursor: pointer;
+  font-size: 14px; padding: 6px 8px; border-radius: 6px; color: var(--text-muted);
+  display: inline-flex; align-items: center; transition: all 120ms;
+}
+.btn-edit:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-suave); }
+
+/* ── Tabela ── */
+.table-card {
+  background: var(--surface-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-xs);
+}
+.data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.data-table th {
+  text-align: left; font-weight: 600; font-size: 12px; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--text-muted); padding: 10px 14px;
+  background: var(--surface-header); border-bottom: 1px solid var(--border);
+}
+.data-table td {
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  color: var(--text-primary); vertical-align: middle;
+}
+.data-table tbody tr { transition: background-color 120ms; }
+.data-table tbody tr:hover { background: var(--surface-page); }
+.data-table tbody tr:last-child td { border-bottom: none; }
+
+/* Célula de ações (editar/excluir/…): alinha à direita sem quebrar o layout
+   de tabela — nunca usar display:flex aqui, vira container flex "cru" e
+   descola a célula do resto da linha. O espaçamento entre botões vem do
+   seletor abaixo, não de gap. */
+.col-actions { text-align: right; white-space: nowrap; }
+.col-actions > * + * { margin-left: 4px; }
+
+/* !important: existe para vencer contextos com seletor mais específico
+   (ex.: `.data-table td { color: var(--text-primary) }`) sem precisar
+   duplicar esse seletor aqui. */
+.text-muted { color: var(--text-muted) !important; }
+
+.loading-msg { padding: 32px; text-align: center; color: var(--text-muted); font-size: 14px; }
+
+/* ── Chips de status ── */
+.status-chip {
+  display: inline-block; font-size: 11px; font-weight: 600;
+  padding: 3px 10px; border-radius: 12px; letter-spacing: 0.02em;
+}
+.status-ok { background: var(--sucesso-suave); color: var(--sucesso); }
+.status-warn { background: var(--atencao-suave); color: var(--atencao); }
+.status-err { background: var(--erro-suave); color: var(--erro); }
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.modal-card {
+  background: var(--surface-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 28px;
+  max-width: 500px; width: 90%; box-shadow: var(--shadow-lg);
+}
+.modal-title { font-size: 18px; font-weight: 700; margin: 0 0 20px; letter-spacing: -0.01em; }
+.modal-form { display: flex; flex-direction: column; gap: 14px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+.form-field { display: flex; flex-direction: column; gap: 4px; }
+.form-field label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+.form-field input, .form-field select {
+  height: 40px; padding: 0 12px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 14px; font-family: var(--font-family);
+  background: var(--surface-card); color: var(--text-primary); outline: none;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.form-field input:focus, .form-field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-suave); }
+.req { color: var(--erro); }

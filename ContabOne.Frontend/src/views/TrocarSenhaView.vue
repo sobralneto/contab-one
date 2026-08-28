@@ -147,14 +147,13 @@ async function onLogout() {
   width: 100%; height: 44px; padding: 0 0.875rem;
   border: 1px solid var(--border); border-radius: var(--radius-md);
   font-size: 14px; font-family: var(--font-family);
-  background: var(--surface-page); color: var(--text-primary);
+  background: var(--surface-card); color: var(--text-primary);
   outline: none; transition: all 150ms ease;
 }
 
 .form-field input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-suave);
-  background: var(--surface-card);
 }
 
 .form-field input:disabled { opacity: 0.5; }

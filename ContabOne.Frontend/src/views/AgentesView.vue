@@ -303,42 +303,6 @@ onMounted(carregar)
 <style scoped>
 .agentes-view { max-width: 1100px; }
 
-.view-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 16px;
-}
-.view-header h1 { margin: 0; }
-
-.btn-primary {
-  height: 38px; padding: 0 18px;
-  background: var(--accent-gradient);
-  color: var(--accent-gradient-texto); border: none;
-  border-radius: var(--radius-md); font-size: 13px; font-weight: 600;
-  font-family: var(--font-family); cursor: pointer; white-space: nowrap;
-  display: inline-flex; align-items: center; gap: 6px;
-  box-shadow: 0 2px 8px rgba(var(--accent-rgb), 0.25);
-  transition: all 150ms ease;
-}
-.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.35); }
-
-.table-card {
-  background: var(--surface-card); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-xs);
-}
-.data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.data-table th {
-  text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase;
-  letter-spacing: 0.04em; color: var(--text-muted); padding: 10px 14px;
-  background: var(--surface-page); border-bottom: 1px solid var(--border);
-}
-.data-table td {
-  padding: 10px 14px; border-bottom: 1px solid var(--border);
-  color: var(--text-primary); vertical-align: middle;
-}
-.data-table tbody tr { transition: background-color 120ms; }
-.data-table tbody tr:hover { background: var(--surface-page); }
-.data-table tbody tr:last-child td { border-bottom: none; }
-
 .col-nome { font-weight: 500; }
 .col-escritorio { font-size: 13px; color: var(--text-secondary); }
 .produto-chip {
@@ -350,11 +314,6 @@ onMounted(carregar)
 .col-versao { font-size: 13px; color: var(--text-muted); }
 .col-criado { font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
 .col-contato { font-size: 13px; color: var(--text-secondary); }
-.col-actions { text-align: right; }
-
-.status-chip { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px; letter-spacing: 0.02em; }
-.status-ok { background: var(--sucesso-suave); color: var(--sucesso); }
-.status-err { background: var(--erro-suave); color: var(--erro); }
 
 .btn-revogar {
   background: none; border: 1px solid var(--border);
@@ -364,33 +323,11 @@ onMounted(carregar)
 }
 .btn-revogar:hover { background: var(--erro-suave); border-color: var(--erro); }
 
-.loading-msg { padding: 32px; text-align: center; color: var(--text-muted); font-size: 14px; }
-
-.modal-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
-  display: flex; align-items: center; justify-content: center; z-index: 1000;
-}
-.modal-card {
-  background: var(--surface-card); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); padding: 28px;
-  max-width: 540px; width: 90%; box-shadow: var(--shadow-lg);
-}
-.modal-title { font-size: 18px; font-weight: 700; margin: 0 0 16px; letter-spacing: -0.01em; }
+.modal-card { max-width: 540px; }
+.modal-title { margin: 0 0 16px; }
 .modal-desc { font-size: 13px; color: var(--text-secondary); margin: 0 0 16px; }
-.modal-form { display: flex; flex-direction: column; gap: 14px; }
-.form-field { display: flex; flex-direction: column; gap: 4px; }
-.form-field label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
-.form-field select {
-  height: 40px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-  font-size: 14px; font-family: var(--font-family);
-  background: var(--surface-page); color: var(--text-primary); outline: none;
-  transition: border-color 150ms, box-shadow 150ms;
-}
-.form-field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-suave); }
 .form-hint { font-size: 12px; color: var(--text-muted); }
 .form-hint code { font-family: var(--font-mono); background: var(--surface-page); padding: 1px 5px; border-radius: 3px; }
-.req { color: var(--erro); }
 
 .chave-aviso {
   font-size: 13px; color: var(--atencao); background: var(--atencao-suave);
@@ -416,12 +353,4 @@ onMounted(carregar)
   transition: all 120ms;
 }
 .btn-copiar:hover { background: var(--accent-hover); }
-
-.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
-.btn-secondary {
-  height: 38px; padding: 0 16px; background: transparent; color: var(--text-secondary);
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  font-size: 13px; font-family: var(--font-family); cursor: pointer; transition: all 120ms;
-}
-.btn-secondary:hover { background: var(--surface-page); }
 </style>

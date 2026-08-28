@@ -267,7 +267,7 @@ async function salvar() {
   height: 40px; padding: 0 12px;
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   font-size: 14px; font-family: var(--font-family);
-  background: var(--surface-page); color: var(--text-primary); outline: none;
+  background: var(--surface-card); color: var(--text-primary); outline: none;
   transition: border-color 150ms, box-shadow 150ms;
 }
 .form-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-suave); }

@@ -260,25 +260,6 @@ onMounted(carregar)
 <style scoped>
 .execucoes-view { max-width: 1100px; }
 
-.view-header { margin-bottom: 16px; }
-.view-header h1 { margin: 0; }
-
-.table-card {
-  background: var(--surface-card); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-xs);
-}
-.data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.data-table th {
-  text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase;
-  letter-spacing: 0.04em; color: var(--text-muted); padding: 10px 14px;
-  background: var(--surface-page); border-bottom: 1px solid var(--border);
-}
-.data-table td {
-  padding: 10px 14px; border-bottom: 1px solid var(--border);
-  color: var(--text-primary); vertical-align: middle;
-}
-.data-table tbody tr:last-child td { border-bottom: none; }
-
 .grupo-row { cursor: pointer; transition: background-color 120ms; }
 .grupo-row:hover { background: var(--surface-page); }
 .grupo-row.expanded { background: var(--accent-suave); }
@@ -293,14 +274,9 @@ onMounted(carregar)
 .col-data { white-space: nowrap; font-size: 12px; color: var(--text-secondary); }
 .col-nome { font-weight: 500; }
 
-.status-chip { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px; letter-spacing: 0.02em; margin-right: 4px; }
-.status-ok { background: var(--sucesso-suave); color: var(--sucesso); }
-.status-warn { background: var(--atencao-suave); color: var(--atencao); }
-.status-err { background: var(--erro-suave); color: var(--erro); }
+.status-chip { margin-right: 4px; }
 
 .text-err { color: var(--erro); font-weight: 600; }
-
-.loading-msg { padding: 32px; text-align: center; color: var(--text-muted); font-size: 14px; }
 
 .detail-row td { padding: 0; border-bottom: 2px solid var(--border); }
 .detail-content { padding: 16px 24px; background: var(--surface-page); }

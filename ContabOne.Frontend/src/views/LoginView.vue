@@ -247,7 +247,7 @@ async function onSubmit() {
   border-radius: var(--radius-md);
   font-size: 14px;
   font-family: var(--font-family);
-  background: var(--surface-page);
+  background: var(--surface-card);
   color: var(--text-primary);
   outline: none;
   transition: all 150ms ease;
@@ -256,7 +256,6 @@ async function onSubmit() {
 .form-field input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-suave);
-  background: var(--surface-card);
 }
 
 .form-field input:disabled {
