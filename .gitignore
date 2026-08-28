@@ -52,6 +52,17 @@ logs/
 # no lugar dele.
 Nfse.Agent/config.toml
 
+# Det.Agent: perfil do Chrome (cookies de sessão gov.br), saídas com dados de
+# notificações da Caixa Postal e config real com CNPJs de clientes. Commite
+# config/empresas.example.json no lugar do config/empresas.json real.
+Det.Agent/perfis/
+Det.Agent/resultado/
+Det.Agent/dados/
+Det.Agent/debug/
+Det.Agent/empresas/
+Det.Agent/config/empresas.json
+Det.Agent/certificado/
+
 # Variáveis de ambiente com segredos (JWT_SIGNING_KEY, HMAC_CNPJ_KEY,
 # DATABASE_URL). Os .env.development/.test/.production do frontend NÃO entram
 # aqui de propósito: têm só a VITE_API_URL, que é embutida no build e precisa
@@ -136,6 +147,8 @@ ENV/
 # casa o fim do nome), mas escopar deixa a intenção explícita.
 Nfse.Agent/*.spec
 Nfse.Agent/build/
+Det.Agent/*.spec
+Det.Agent/build/
 
 
 # ==========================================================================
