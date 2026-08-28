@@ -182,7 +182,20 @@ da API). Documento de projeto: [PLANO_SAAS_FRONTEND.md](PLANO_SAAS_FRONTEND.md).
 
 ## Subindo a stack completa localmente
 
-Na ordem — cada passo em um terminal próprio:
+Um único comando na raiz sobe banco, API e frontend juntos (`concurrently`
+cuida de rodar API e frontend em paralelo, no mesmo terminal, com log
+identificado por cor):
+
+```bash
+npm install
+```
+
+```bash
+npm run dev
+```
+
+Equivalente manual — útil para depurar um dos três isoladamente, cada passo em
+um terminal próprio:
 
 ```bash
 docker compose up -d postgres

@@ -1,0 +1,15 @@
+{
+  "name": "contab-one",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "npm run db:up && concurrently -n API,FRONT -c blue,green --kill-others-on-fail \"npm run dev:api\" \"npm run dev:front\"",
+    "dev:api": "dotnet run --project ContabOne.Api",
+    "dev:front": "npm --prefix ContabOne.Frontend run dev",
+    "db:up": "docker compose up -d --wait postgres",
+    "db:down": "docker compose down"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
