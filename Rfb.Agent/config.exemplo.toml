@@ -1,0 +1,57 @@
+# Copie para config.toml (que esta no .gitignore, porque lista CNPJs de
+# clientes reais) e ajuste.
+
+[geral]
+# Validade da credencial, em anos a contar da data de execucao. O robo monta
+# meia-noite no fuso America/Sao_Paulo e converte para UTC antes de enviar.
+validade_anos = 5
+
+# Servicos obrigatorios de toda credencial. Confirmados como fixos nos testes
+# de 2026-08. Se o portal passar a exigir outro, acrescente aqui -- nao ha
+# nada no codigo amarrado a estes tres IDs.
+servicos_padrao = [
+  "f3ddfabd-aeb4-4fab-b0c3-e0675d34f016",
+  "0b216f6f-5768-4250-9c60-8b17be9abc04",
+  "8c8c17eb-9f1e-4297-8a6f-a430bc38fbef",
+]
+
+# Caminho relativo resolve dentro de resultado/. O arquivo contem
+# client_secret em texto puro: o robo cria com permissao restrita ao usuario
+# atual e o .gitignore ja o exclui.
+saida_csv = "credenciais_geradas.csv"
+
+# manual        -> o operador escolhe o certificado no dialogo do Chrome
+# playwright_pfx -> o Playwright apresenta o .pfx sozinho (padrao)
+modo_certificado = "playwright_pfx"
+# Sem esta linha, o robo procura o unico *.pfx dentro de certificado/.
+# certificado_pfx = "certificado/escritorio.pfx"
+
+# Pausa entre clientes, em segundos. Aumente se o portal comecar a responder
+# 429 no meio do lote.
+pausa_entre_clientes_s = 2.0
+
+# headless = false na primeira execucao de cada perfil: pode ser preciso
+# escolher o certificado na mao.
+headless = false
+
+
+# Um bloco por cliente. `nome_credencial` e o campo "Nome" que aparece na
+# tela de credenciais do contribuinte.
+[[clientes]]
+cnpj = "07.467.651/0001-35"
+nome_credencial = "LEJ Contábil"
+
+[[clientes]]
+cnpj = "00.000.000/0001-00"
+nome_credencial = "Outro Cliente"
+# ativo = false  # deixa o cliente na lista sem processa-lo
+
+
+# Sobrescreve os seletores do codigo, para calibrar o robo sem gerar novo
+# executavel. Cada chave e uma LISTA de candidatos, tentados em ordem.
+# Gramatica: role=<papel>:<regex> | texto= | rotulo= | titulo= |
+#            placeholder= | testid= | css= | xpath=
+# Rode `python run.py --dump` para gravar o HTML da tela antes de mexer aqui.
+#
+# [seletores]
+# abrir_representar = ["css=header button.meu-seletor"]

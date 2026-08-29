@@ -63,6 +63,21 @@ Det.Agent/empresas/
 Det.Agent/config/empresas.json
 Det.Agent/certificado/
 
+# Rfb.Agent: o resultado/ guarda o CSV de credenciais com CLIENT_SECRET EM
+# TEXTO PURO — cada linha é acesso de API à conta de um contribuinte real.
+# O perfil traz cookies da sessão autenticada por certificado, o debug traz
+# screenshots de telas logadas e o config.toml real lista CNPJs de clientes.
+# Commite config.exemplo.toml no lugar dele.
+Rfb.Agent/perfil/
+Rfb.Agent/resultado/
+Rfb.Agent/debug/
+Rfb.Agent/certificado/
+Rfb.Agent/config.toml
+# Rede de segurança para um saida_csv apontado para fora de resultado/.
+# Escopado ao agente de propósito: um `*.csv` na raiz do monorepo passaria a
+# esconder fixture de teste em qualquer projeto, sem ninguém perceber.
+Rfb.Agent/*.csv
+
 # Variáveis de ambiente com segredos (JWT_SIGNING_KEY, HMAC_CNPJ_KEY,
 # DATABASE_URL). Os .env.development/.test/.production do frontend NÃO entram
 # aqui de propósito: têm só a VITE_API_URL, que é embutida no build e precisa
