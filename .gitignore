@@ -199,3 +199,9 @@ $RECYCLE.BIN/
 
 # Escrita atômica (padrão .tmp + replace usado no _controle.json).
 *.tmp
+Nfse.Agent
+ContabOne.Api
+ContabOne.Frontend
+ContabOne.Api.Tests
+Det.Agent
+Rfb.Agent
