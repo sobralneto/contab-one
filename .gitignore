@@ -73,6 +73,10 @@ Rfb.Agent/resultado/
 Rfb.Agent/debug/
 Rfb.Agent/certificado/
 Rfb.Agent/config.toml
+# Planilha real de clientes (CNPJ + razao social); so o nome do arquivo e
+# generico o bastante para nao levar sufixo de agente, entao a regra fica
+# ampla mas escopada a este diretorio.
+Rfb.Agent/*.xlsx
 # Rede de segurança para um saida_csv apontado para fora de resultado/.
 # Escopado ao agente de propósito: um `*.csv` na raiz do monorepo passaria a
 # esconder fixture de teste em qualquer projeto, sem ninguém perceber.
