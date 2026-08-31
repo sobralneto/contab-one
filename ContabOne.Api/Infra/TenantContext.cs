@@ -38,6 +38,20 @@ public class TenantContext
         EscritorioId = null; // sem filtro — VeTodosOsEscritorios é o sinal
     }
 
+    /// <summary>
+    /// PlatformAdmin operando dentro de um escritório específico. Diferente de
+    /// <see cref="FromAdmin"/>: o admin focado NÃO vê todos os escritórios — é
+    /// escopado como qualquer outro usuário, e o filtro global passa a valer.
+    /// A visão de todos fica reservada ao admin sem foco.
+    /// </summary>
+    public void FromAdminComFoco(Guid usuarioId, Guid escritorioId)
+    {
+        UsuarioId = usuarioId;
+        Papel = "PlatformAdmin";
+        VeTodosOsEscritorios = false;
+        EscritorioId = escritorioId;
+    }
+
     public void FromAgente(Guid escritorioId, Guid agenteId)
     {
         EscritorioId = escritorioId;

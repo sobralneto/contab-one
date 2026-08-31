@@ -23,12 +23,12 @@ public static class SeedEndpoints
                 return Results.NotFound();
 
             var users = await userManager.Users
-                .Select(u => new { u.Email, u.Papel, u.EscritorioId, u.Ativo })
+                .Select(u => new { u.Email, u.Papel, u.Ativo })
                 .ToListAsync();
 
             // Raw SQL — bypass any EF/UserManager caching
             var rawUsers = await db.Database
-                .SqlQueryRaw<RawUser>("SELECT \"Email\", \"UserName\", \"Papel\", \"EscritorioId\", \"Ativo\" FROM \"AspNetUsers\"")
+                .SqlQueryRaw<RawUser>("SELECT \"Email\", \"UserName\", \"Papel\", \"Ativo\" FROM \"AspNetUsers\"")
                 .ToListAsync();
 
             var escritorios = await db.Escritorios
@@ -137,7 +137,7 @@ public static class SeedEndpoints
             var admin = await userManager.FindByEmailAsync("admin@nfse.local");
             if (admin == null)
             {
-                admin = new Usuario { UserName = "admin", Nome = "Admin da Plataforma", Email = "admin@nfse.local", Papel = PapelUsuario.PlatformAdmin, EscritorioId = null, Ativo = true, EmailConfirmed = true };
+                admin = new Usuario { UserName = "admin", Nome = "Admin da Plataforma", Email = "admin@nfse.local", Papel = PapelUsuario.PlatformAdmin, Ativo = true, EmailConfirmed = true };
                 var r = await userManager.CreateAsync(admin, "Admin123!");
                 if (r.Succeeded) { await userManager.AddToRoleAsync(admin, "PlatformAdmin"); created.Add("PlatformAdmin: admin@nfse.local / Admin123!"); }
                 else errors.AddRange(r.Errors.Select(e => $"admin: {e.Description}"));
@@ -147,9 +147,15 @@ public static class SeedEndpoints
             var escAdmin = await userManager.FindByEmailAsync("escritorio@nfse.local");
             if (escAdmin == null)
             {
-                escAdmin = new Usuario { UserName = "escritorio", Nome = "Admin do Escritório", Email = "escritorio@nfse.local", Papel = PapelUsuario.EscritorioAdmin, EscritorioId = escritorio.Id, Ativo = true, EmailConfirmed = true };
+                escAdmin = new Usuario { UserName = "escritorio", Nome = "Admin do Escritório", Email = "escritorio@nfse.local", Papel = PapelUsuario.EscritorioAdmin, Ativo = true, EmailConfirmed = true };
                 var r = await userManager.CreateAsync(escAdmin, "Admin123!");
-                if (r.Succeeded) { await userManager.AddToRoleAsync(escAdmin, "EscritorioAdmin"); created.Add("EscritorioAdmin: escritorio@nfse.local / Admin123!"); }
+                if (r.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(escAdmin, "EscritorioAdmin");
+                    db.UsuariosEscritorios.Add(new UsuarioEscritorio { UsuarioId = escAdmin.Id, EscritorioId = escritorio.Id });
+                    await db.SaveChangesAsync();
+                    created.Add("EscritorioAdmin: escritorio@nfse.local / Admin123!");
+                }
                 else errors.AddRange(r.Errors.Select(e => $"escritorio: {e.Description}"));
             }
 
@@ -157,9 +163,15 @@ public static class SeedEndpoints
             var escUser = await userManager.FindByEmailAsync("usuario@nfse.local");
             if (escUser == null)
             {
-                escUser = new Usuario { UserName = "usuario", Nome = "Usuário do Escritório", Email = "usuario@nfse.local", Papel = PapelUsuario.EscritorioUsuario, EscritorioId = escritorio.Id, Ativo = true, EmailConfirmed = true };
+                escUser = new Usuario { UserName = "usuario", Nome = "Usuário do Escritório", Email = "usuario@nfse.local", Papel = PapelUsuario.EscritorioUsuario, Ativo = true, EmailConfirmed = true };
                 var r = await userManager.CreateAsync(escUser, "Admin123!");
-                if (r.Succeeded) { await userManager.AddToRoleAsync(escUser, "EscritorioUsuario"); created.Add("EscritorioUsuario: usuario@nfse.local / Admin123!"); }
+                if (r.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(escUser, "EscritorioUsuario");
+                    db.UsuariosEscritorios.Add(new UsuarioEscritorio { UsuarioId = escUser.Id, EscritorioId = escritorio.Id });
+                    await db.SaveChangesAsync();
+                    created.Add("EscritorioUsuario: usuario@nfse.local / Admin123!");
+                }
                 else errors.AddRange(r.Errors.Select(e => $"usuario: {e.Description}"));
             }
 
@@ -191,6 +203,5 @@ public class RawUser
     public string Email { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;
     public int Papel { get; set; }
-    public Guid? EscritorioId { get; set; }
     public bool Ativo { get; set; }
 }

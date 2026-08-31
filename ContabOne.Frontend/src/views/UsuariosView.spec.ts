@@ -19,8 +19,7 @@ function usuario(
     nome,
     email: `${id}@nfse.local`,
     papel,
-    escritorioId: 'e1',
-    escritorioNome: 'Contabilidade Silva ME',
+    escritorios: [{ id: 'e1', nome: 'Contabilidade Silva ME' }],
     ativo: true,
     deveTrocarSenha: false,
     ultimoLoginEm: null,
@@ -72,20 +71,20 @@ describe('UsuariosView (integração com MSW)', () => {
     expect(screen.getByText('senha provisória')).toBeInTheDocument()
   })
 
-  it('admin de escritório não vê a coluna de escritório', async () => {
+  it('admin de escritório vê a coluna de escritórios, com os vínculos que enxerga', async () => {
     autenticarComo('EscritorioAdmin')
     render(UsuariosView)
     await screen.findByText('Ana Souza')
 
-    expect(screen.queryByRole('columnheader', { name: 'Escritório' })).not.toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Escritórios' })).toBeInTheDocument()
   })
 
-  it('admin da plataforma vê a coluna de escritório', async () => {
+  it('admin da plataforma vê a coluna de escritórios', async () => {
     autenticarComo('PlatformAdmin')
     render(UsuariosView)
     await screen.findByText('Ana Souza')
 
-    expect(screen.getByRole('columnheader', { name: 'Escritório' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Escritórios' })).toBeInTheDocument()
   })
 
   it('admin de escritório não pode conceder o papel de plataforma', async () => {

@@ -11,10 +11,10 @@ namespace ContabOne.Api.Features.Usuarios;
 /// usuário era /api/seed/*, que só existe em Development — ou seja, uma base
 /// de produção nova não tinha como cadastrar ninguém.
 ///
-/// ATENÇÃO ao escopo de tenant: <see cref="Usuario"/> é a única entidade sem
-/// query filter global no <see cref="AppDbContext"/> (o UserManager precisa
-/// encontrar o usuário no login, antes de existir tenant resolvido). Todo
-/// handler daqui aplica o escopo na mão — ver <see cref="BuscarNoEscopoAsync"/>.
+/// ATENÇÃO ao escopo de tenant: <see cref="Usuario"/> e <see cref="UsuarioEscritorio"/>
+/// são entidades sem query filter global no <see cref="AppDbContext"/> (o UserManager
+/// precisa encontrar o usuário no login, antes de existir tenant resolvido). Todo
+/// handler daqui aplica o escopo na mão — ver <see cref="EscritoriosVisiveisAsync"/>.
 /// </summary>
 public static class UsuariosEndpoints
 {
@@ -32,22 +32,34 @@ public static class UsuariosEndpoints
 
     private static async Task<IResult> ListarAsync(AppDbContext db, TenantContext tenant)
     {
-        var query = db.Users.AsQueryable();
-        if (!tenant.IsAdmin)
-            query = query.Where(u => u.EscritorioId == tenant.EscritorioId);
+        var visiveis = await EscritoriosVisiveisAsync(db, tenant);
 
-        var usuarios = await query
+        // PlatformAdmin sem foco vê todos os usuários com todos os vínculos;
+        // os demais, só usuários com vínculo em comum e, de cada um, apenas os
+        // vínculos que o solicitante também enxerga (senão listar usuários
+        // viraria jeito indireto de descobrir a carteira de um colega).
+        if (visiveis == null)
+        {
+            var todos = await db.Users
+                .OrderBy(u => u.Nome)
+                .Select(u => new UsuarioListaDto(
+                    u.Id, u.Nome, u.Email!, u.Papel.ToString(),
+                    u.Escritorios.OrderBy(v => v.Escritorio.Nome)
+                        .Select(v => new EscritorioVinculoDto(v.EscritorioId, v.Escritorio.Nome)).ToList(),
+                    u.Ativo, u.DeveTrocarSenha, u.UltimoLoginEm))
+                .ToListAsync();
+            return Results.Ok(todos);
+        }
+
+        var usuarios = await db.Users
+            .Where(u => u.Escritorios.Any(v => visiveis.Contains(v.EscritorioId)))
             .OrderBy(u => u.Nome)
             .Select(u => new UsuarioListaDto(
-                u.Id,
-                u.Nome,
-                u.Email!,
-                u.Papel.ToString(),
-                u.EscritorioId,
-                u.Escritorio != null ? u.Escritorio.Nome : null,
-                u.Ativo,
-                u.DeveTrocarSenha,
-                u.UltimoLoginEm))
+                u.Id, u.Nome, u.Email!, u.Papel.ToString(),
+                u.Escritorios.Where(v => visiveis.Contains(v.EscritorioId))
+                    .OrderBy(v => v.Escritorio.Nome)
+                    .Select(v => new EscritorioVinculoDto(v.EscritorioId, v.Escritorio.Nome)).ToList(),
+                u.Ativo, u.DeveTrocarSenha, u.UltimoLoginEm))
             .ToListAsync();
 
         return Results.Ok(usuarios);
@@ -60,6 +72,7 @@ public static class UsuariosEndpoints
         IValidator<CriarUsuarioRequest> validator,
         UserManager<Usuario> userManager,
         RoleManager<IdentityRole<Guid>> roleManager,
+        AppDbContext db,
         TenantContext tenant)
     {
         var validation = await validator.ValidateAsync(req);
@@ -69,9 +82,25 @@ public static class UsuariosEndpoints
         if (!Enum.TryParse<PapelUsuario>(req.Papel, true, out var papel))
             return Erro("papel", "Papel inválido");
 
-        var escopo = ResolverEscopo(papel, req.EscritorioId, tenant);
-        if (escopo.Erro != null)
-            return escopo.Erro;
+        // Escalação de privilégio: só a plataforma concede o papel PlatformAdmin.
+        if (papel == PapelUsuario.PlatformAdmin && !tenant.IsAdmin)
+            return Results.Json(
+                new { erro = "Apenas o admin da plataforma pode conceder o papel PlatformAdmin" },
+                statusCode: StatusCodes.Status403Forbidden);
+
+        var visiveis = await EscritoriosVisiveisAsync(db, tenant);
+
+        var escritorios = (req.Escritorios ?? []).Distinct().ToList();
+
+        if (papel != PapelUsuario.PlatformAdmin && escritorios.Count == 0)
+            return Erro("escritorios", "O usuário precisa de ao menos um escritório");
+
+        // Admin de escritório só vincula aos próprios escritórios; PlatformAdmin
+        // (sem foco, visiveis == null) vincula a qualquer um.
+        if (visiveis != null && escritorios.Any(e => !visiveis.Contains(e)))
+            return Results.Json(
+                new { erro = "Você só pode vincular usuários aos seus próprios escritórios" },
+                statusCode: StatusCodes.Status403Forbidden);
 
         var usuario = new Usuario
         {
@@ -81,7 +110,6 @@ public static class UsuariosEndpoints
             Email = req.Email,
             Nome = req.Nome,
             Papel = papel,
-            EscritorioId = escopo.EscritorioId,
             Ativo = true,
             EmailConfirmed = true,
             // Senha definida por outra pessoa nunca é senha final.
@@ -93,6 +121,12 @@ public static class UsuariosEndpoints
             return Results.ValidationProblem(MapearErrosIdentity(criado));
 
         await AtribuirPapelAsync(userManager, roleManager, usuario, papel);
+
+        foreach (var escritorioId in escritorios)
+        {
+            db.UsuariosEscritorios.Add(new UsuarioEscritorio { UsuarioId = usuario.Id, EscritorioId = escritorioId });
+        }
+        await db.SaveChangesAsync();
 
         return Results.Created($"/api/usuarios/{usuario.Id}", new
         {
@@ -125,27 +159,59 @@ public static class UsuariosEndpoints
         if (!string.IsNullOrWhiteSpace(req.Nome))
             usuario.Nome = req.Nome;
 
+        var papel = usuario.Papel;
         if (!string.IsNullOrEmpty(req.Papel))
         {
             if (!Enum.TryParse<PapelUsuario>(req.Papel, true, out var novoPapel))
                 return Erro("papel", "Papel inválido");
+
+            // Escalação de privilégio: só a plataforma concede o papel PlatformAdmin.
+            if (novoPapel == PapelUsuario.PlatformAdmin && !tenant.IsAdmin)
+                return Results.Json(
+                    new { erro = "Apenas o admin da plataforma pode conceder o papel PlatformAdmin" },
+                    statusCode: StatusCodes.Status403Forbidden);
 
             // Rebaixar a si mesmo tira o acesso a esta própria tela — e se for o
             // único admin do escritório, ninguém consegue desfazer.
             if (novoPapel != usuario.Papel && id == tenant.UsuarioId)
                 return Erro("papel", "Você não pode alterar o próprio papel");
 
-            var escopo = ResolverEscopo(novoPapel, req.EscritorioId ?? usuario.EscritorioId, tenant);
-            if (escopo.Erro != null)
-                return escopo.Erro;
-
-            usuario.Papel = novoPapel;
-            usuario.EscritorioId = escopo.EscritorioId;
-            await AtribuirPapelAsync(userManager, roleManager, usuario, novoPapel);
+            papel = novoPapel;
         }
-        else if (req.EscritorioId.HasValue && tenant.IsAdmin && usuario.Papel != PapelUsuario.PlatformAdmin)
+
+        if (req.Escritorios != null)
         {
-            usuario.EscritorioId = req.EscritorioId;
+            var visiveis = await EscritoriosVisiveisAsync(db, tenant);
+
+            // EscritorioAdmin só mexe nos vínculos que enxerga; o vínculo do
+            // usuário com um escritório fora do alcance do solicitante permanece
+            // intocado (não dá para editar o alcance de quem está fora do escopo).
+            if (visiveis != null && req.Escritorios.Any(e => !visiveis.Contains(e)))
+                return Results.Json(
+                    new { erro = "Você só pode vincular usuários aos seus próprios escritórios" },
+                    statusCode: StatusCodes.Status403Forbidden);
+
+            var atuais = await db.UsuariosEscritorios
+                .Where(v => v.UsuarioId == id).Select(v => v.EscritorioId).ToListAsync();
+            var foraDoAlcance = visiveis == null ? [] : atuais.Where(x => !visiveis.Contains(x)).ToList();
+
+            var novos = req.Escritorios.Distinct().Concat(foraDoAlcance).Distinct().ToList();
+
+            if (papel != PapelUsuario.PlatformAdmin && novos.Count == 0)
+                return Erro("escritorios", "O usuário precisa de ao menos um escritório ou de mudança de papel");
+
+            var existentes = await db.UsuariosEscritorios.Where(v => v.UsuarioId == id).ToListAsync();
+            db.UsuariosEscritorios.RemoveRange(existentes);
+            foreach (var escritorioId in novos)
+            {
+                db.UsuariosEscritorios.Add(new UsuarioEscritorio { UsuarioId = id, EscritorioId = escritorioId });
+            }
+        }
+
+        if (papel != usuario.Papel)
+        {
+            usuario.Papel = papel;
+            await AtribuirPapelAsync(userManager, roleManager, usuario, papel);
         }
 
         var atualizado = await userManager.UpdateAsync(usuario);
@@ -157,7 +223,6 @@ public static class UsuariosEndpoints
             usuario.Id,
             usuario.Nome,
             Papel = usuario.Papel.ToString(),
-            usuario.EscritorioId,
         });
     }
 
@@ -219,42 +284,41 @@ public static class UsuariosEndpoints
     // ── Apoio ──
 
     /// <summary>
+    /// Escritórios que o solicitante pode enxergar para gestão de usuários:
+    /// <c>null</c> para PlatformAdmin sem foco (todos); o escritório em foco
+    /// para PlatformAdmin com foco; e o conjunto dos vínculos do próprio
+    /// EscritorioAdmin. Sem escopo resolvido, lista vazia (fail-closed).
+    /// </summary>
+    private static async Task<List<Guid>?> EscritoriosVisiveisAsync(AppDbContext db, TenantContext tenant)
+    {
+        if (tenant.VeTodosOsEscritorios)
+            return null;
+
+        if (tenant.IsAdmin)
+            return tenant.EscritorioId.HasValue ? [tenant.EscritorioId.Value] : [];
+
+        if (tenant.UsuarioId == null)
+            return [];
+
+        return await db.UsuariosEscritorios
+            .Where(v => v.UsuarioId == tenant.UsuarioId.Value)
+            .Select(v => v.EscritorioId)
+            .ToListAsync();
+    }
+
+    /// <summary>
     /// Busca escopada ao tenant. Devolve null (→ 404) quando o alvo é de outro
     /// escritório: 404 em vez de 403 para não confirmar que o usuário existe.
     /// </summary>
     private static async Task<Usuario?> BuscarNoEscopoAsync(AppDbContext db, TenantContext tenant, Guid id)
     {
-        var query = db.Users.AsQueryable();
-        if (!tenant.IsAdmin)
-            query = query.Where(u => u.EscritorioId == tenant.EscritorioId);
+        var visiveis = await EscritoriosVisiveisAsync(db, tenant);
+        if (visiveis == null)
+            return await db.Users.FirstOrDefaultAsync(u => u.Id == id);
 
-        return await query.FirstOrDefaultAsync(u => u.Id == id);
-    }
-
-    /// <summary>
-    /// Decide o escritório do usuário e barra escalação de privilégio. O
-    /// escritório de um admin de escritório vem do token, nunca do corpo da
-    /// requisição — aceitar do corpo seria criar usuário dentro de outro tenant.
-    /// </summary>
-    private static (Guid? EscritorioId, IResult? Erro) ResolverEscopo(
-        PapelUsuario papel, Guid? escritorioIdRequisitado, TenantContext tenant)
-    {
-        if (papel == PapelUsuario.PlatformAdmin)
-        {
-            if (!tenant.IsAdmin)
-                return (null, Results.Json(
-                    new { erro = "Apenas o admin da plataforma pode conceder o papel PlatformAdmin" },
-                    statusCode: StatusCodes.Status403Forbidden));
-
-            // PlatformAdmin não pertence a escritório (o login zera o claim).
-            return (null, null);
-        }
-
-        var escritorioId = tenant.IsAdmin ? escritorioIdRequisitado : tenant.EscritorioId;
-        if (escritorioId == null)
-            return (null, Erro("escritorioId", "Informe o escritório do usuário"));
-
-        return (escritorioId, null);
+        return await db.Users
+            .Where(u => u.Id == id && u.Escritorios.Any(v => visiveis.Contains(v.EscritorioId)))
+            .FirstOrDefaultAsync();
     }
 
     /// <summary>
@@ -325,13 +389,14 @@ public static class UsuariosEndpoints
 
 // ── DTOs ──
 
+public record EscritorioVinculoDto(Guid Id, string Nome);
+
 public record UsuarioListaDto(
     Guid Id,
     string Nome,
     string Email,
     string Papel,
-    Guid? EscritorioId,
-    string? EscritorioNome,
+    IReadOnlyList<EscritorioVinculoDto> Escritorios,
     bool Ativo,
     bool DeveTrocarSenha,
     DateTime? UltimoLoginEm);
@@ -344,14 +409,14 @@ public record CriarUsuarioRequest
     // String em vez de enum: o frontend envia "EscritorioAdmin" e a API não
     // registra JsonStringEnumConverter (mesmo motivo documentado em AdminEndpoints).
     public string Papel { get; init; } = string.Empty;
-    public Guid? EscritorioId { get; init; }
+    public List<Guid>? Escritorios { get; init; }
 }
 
 public record AtualizarUsuarioRequest
 {
     public string? Nome { get; init; }
     public string? Papel { get; init; }
-    public Guid? EscritorioId { get; init; }
+    public List<Guid>? Escritorios { get; init; }
 }
 
 public record ResetarSenhaRequest(string NovaSenha);
@@ -383,11 +448,16 @@ public class CriarUsuarioRequestValidator : AbstractValidator<CriarUsuarioReques
         RuleFor(x => x.Email).NotEmpty().WithMessage("Informe o e-mail").EmailAddress().MaximumLength(256);
         RuleFor(x => x.Senha).SenhaForte();
         RuleFor(x => x.Papel).NotEmpty().WithMessage("Informe o papel");
-        RuleFor(x => x.EscritorioId)
-            .MustAsync(async (escritorioId, ct) =>
-                !escritorioId.HasValue || await db.Escritorios.IgnoreQueryFilters()
-                    .AnyAsync(e => e.Id == escritorioId.Value, ct))
-            .WithMessage("Escritório informado não existe");
+        RuleFor(x => x.Escritorios)
+            .MustAsync(async (escritorios, ct) =>
+            {
+                if (escritorios == null || escritorios.Count == 0)
+                    return true;
+                var distintos = escritorios.Distinct().ToList();
+                return await db.Escritorios.IgnoreQueryFilters()
+                    .CountAsync(e => distintos.Contains(e.Id), ct) == distintos.Count;
+            })
+            .WithMessage("Um dos escritórios informados não existe");
     }
 }
 
@@ -396,11 +466,16 @@ public class AtualizarUsuarioRequestValidator : AbstractValidator<AtualizarUsuar
     public AtualizarUsuarioRequestValidator(AppDbContext db)
     {
         RuleFor(x => x.Nome).MaximumLength(200).When(x => x.Nome != null);
-        RuleFor(x => x.EscritorioId)
-            .MustAsync(async (escritorioId, ct) =>
-                !escritorioId.HasValue || await db.Escritorios.IgnoreQueryFilters()
-                    .AnyAsync(e => e.Id == escritorioId.Value, ct))
-            .WithMessage("Escritório informado não existe");
+        RuleFor(x => x.Escritorios)
+            .MustAsync(async (escritorios, ct) =>
+            {
+                if (escritorios == null || escritorios.Count == 0)
+                    return true;
+                var distintos = escritorios.Distinct().ToList();
+                return await db.Escritorios.IgnoreQueryFilters()
+                    .CountAsync(e => distintos.Contains(e.Id), ct) == distintos.Count;
+            })
+            .WithMessage("Um dos escritórios informados não existe");
     }
 }
 

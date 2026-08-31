@@ -43,7 +43,7 @@ public static class ClientesEndpoints
         AppDbContext db,
         TenantContext tenant)
     {
-        var escopo = tenant.IsAdmin ? escritorioId : tenant.EscritorioId;
+        var escopo = tenant.EscritorioId ?? (tenant.VeTodosOsEscritorios ? escritorioId : null);
         if (escopo == null)
             return Results.BadRequest(new { erro = "Escritório é obrigatório" });
 
@@ -68,7 +68,8 @@ public static class ClientesEndpoints
         int? diasVencimentoCert,
         int pagina = 1,
         int tamanho = 20,
-        AppDbContext db = null!)
+        AppDbContext db = null!,
+        TenantContext tenant = null!)
     {
         tamanho = Math.Clamp(tamanho, 1, 100);
         var query = db.Clientes.AsQueryable();
@@ -81,10 +82,10 @@ public static class ClientesEndpoints
                 c.CnpjMascarado.Contains(busca));
         }
 
-        // Admin filtra por escritório; escritório/usuário já são escopados pelos
-        // query filters globais, mas aceitar o parâmetro é inofensivo (nada além
-        // do próprio tenancy é retornado).
-        if (escritorioId.HasValue)
+        // Admin sem foco filtra por escritório; escritório/usuário (e admin com
+        // foco) já são escopados pelos query filters globais, e aceitar o
+        // parâmetro é inofensivo (nada além do próprio tenancy é retornado).
+        if (escritorioId.HasValue && tenant.VeTodosOsEscritorios)
             query = query.Where(c => c.EscritorioId == escritorioId.Value);
 
         if (diasVencimentoCert.HasValue && diasVencimentoCert.Value > 0)
@@ -131,9 +132,10 @@ public static class ClientesEndpoints
             return Results.ValidationProblem(validation.ToDictionary());
 
         // Admin (sem escritório próprio) precisa indicar o escritório de destino;
-        // escritório/usuário são vinculados ao próprio tenancy.
+        // escritório/usuário são vinculados ao próprio tenancy; admin COM foco é
+        // escopado ao escritório em foco como qualquer outro usuário.
         Guid escritorioId;
-        if (tenant.IsAdmin)
+        if (tenant.VeTodosOsEscritorios)
         {
             if (!req.EscritorioId.HasValue)
                 return Results.ValidationProblem(new Dictionary<string, string[]>

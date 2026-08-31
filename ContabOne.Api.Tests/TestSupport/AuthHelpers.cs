@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using ContabOne.Api.Domain;
+using ContabOne.Api.Infra;
 using Xunit;
 
 namespace ContabOne.Api.Tests.TestSupport;
@@ -32,6 +33,7 @@ public static class AuthHelpers
     {
         using var scope = services.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<Usuario>>();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var usuario = new Usuario
         {
@@ -45,7 +47,6 @@ public static class AuthHelpers
                 "EscritorioAdmin" => PapelUsuario.EscritorioAdmin,
                 _ => PapelUsuario.EscritorioUsuario,
             },
-            EscritorioId = escritorioId,
             Ativo = true,
             EmailConfirmed = true,
         };
@@ -54,7 +55,22 @@ public static class AuthHelpers
             throw new InvalidOperationException(
                 $"Falha ao criar usuário {email}: {string.Join("; ", criado.Errors.Select(e => e.Description))}");
         await userManager.AddToRoleAsync(usuario, papel);
+
+        if (escritorioId.HasValue)
+        {
+            db.UsuariosEscritorios.Add(new UsuarioEscritorio { UsuarioId = usuario.Id, EscritorioId = escritorioId.Value });
+            await db.SaveChangesAsync();
+        }
         return usuario;
+    }
+
+    /// <summary>Acrescenta um vínculo de escritório a um usuário já existente (para os testes de múltiplos vínculos).</summary>
+    public static async Task VincularEscritorio(IServiceProvider services, Guid usuarioId, Guid escritorioId)
+    {
+        using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.UsuariosEscritorios.Add(new UsuarioEscritorio { UsuarioId = usuarioId, EscritorioId = escritorioId });
+        await db.SaveChangesAsync();
     }
 
     public static async Task<string> Login(HttpClient client, string email, string senha)

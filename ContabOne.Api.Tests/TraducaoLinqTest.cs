@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ContabOne.Api.Domain;
+using ContabOne.Api.Features.Usuarios;
 using ContabOne.Api.Infra;
 using Xunit;
 
@@ -125,29 +126,24 @@ public class TraducaoLinqTest
     public void ListagemDeUsuarios_TraduzParaSql()
     {
         using var db = CriarContexto();
+        var visiveis = new List<Guid> { Guid.NewGuid() };
 
-        // Forma da projeção de UsuariosEndpoints.ListarAsync. Dois pontos que
-        // poderiam não traduzir: o ToString() do enum Papel e o acesso à
-        // navegação opcional Escritorio (PlatformAdmin não tem escritório).
+        // Forma da projeção de UsuariosEndpoints.ListarAsync (ramo escopado).
+        // Pontos que poderiam não traduzir: o ToString() do enum Papel e a
+        // projeção da coleção de vínculos filtrada por `visiveis`.
         var sql = db.Users
-            .Where(u => u.EscritorioId == Guid.NewGuid())
+            .Where(u => u.Escritorios.Any(v => visiveis.Contains(v.EscritorioId)))
             .OrderBy(u => u.Nome)
-            .Select(u => new
-            {
-                u.Id,
-                u.Nome,
-                u.Email,
-                Papel = u.Papel.ToString(),
-                u.EscritorioId,
-                EscritorioNome = u.Escritorio != null ? u.Escritorio.Nome : null,
-                u.Ativo,
-                u.DeveTrocarSenha,
-                u.UltimoLoginEm,
-            })
+            .Select(u => new UsuarioListaDto(
+                u.Id, u.Nome, u.Email!, u.Papel.ToString(),
+                u.Escritorios.Where(v => visiveis.Contains(v.EscritorioId))
+                    .OrderBy(v => v.Escritorio.Nome)
+                    .Select(v => new EscritorioVinculoDto(v.EscritorioId, v.Escritorio.Nome)).ToList(),
+                u.Ativo, u.DeveTrocarSenha, u.UltimoLoginEm))
             .ToQueryString();
 
         Assert.Contains("DeveTrocarSenha", sql);
-        Assert.Contains("LEFT JOIN", sql); // navegação opcional, não INNER
+        Assert.Contains("UsuariosEscritorios", sql); // o vínculo entra na consulta
     }
 
     [Fact]

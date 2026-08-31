@@ -12,7 +12,7 @@
             <th>Nome</th>
             <th>E-mail</th>
             <th>Papel</th>
-            <th v-if="auth.isPlatformAdmin">Escritório</th>
+            <th>Escritórios</th>
             <th>Status</th>
             <th>Último login</th>
             <th></th>
@@ -23,7 +23,7 @@
             <td class="col-nome">{{ u.nome }}</td>
             <td class="col-email">{{ u.email }}</td>
             <td>{{ papelLabel(u.papel) }}</td>
-            <td v-if="auth.isPlatformAdmin">{{ u.escritorioNome || '—' }}</td>
+            <td>{{ u.escritorios.map((e) => e.nome).join(', ') || '—' }}</td>
             <td>
               <span class="status-chip" :class="u.ativo ? 'status-ok' : 'status-off'">
                 {{ u.ativo ? 'Ativo' : 'Inativo' }}
@@ -118,12 +118,17 @@
               <span class="field-hint">{{ PAPEL_USUARIO[form.papel].descricao }}</span>
             </div>
 
-            <div class="form-field" v-if="auth.isPlatformAdmin && form.papel !== 'PlatformAdmin'">
-              <label>Escritório <span class="req">*</span></label>
-              <select v-model="form.escritorioId">
-                <option :value="null">—</option>
-                <option v-for="e in escritorios" :key="e.id" :value="e.id">{{ e.nome }}</option>
-              </select>
+            <div class="form-field" v-if="form.papel !== 'PlatformAdmin'">
+              <label>Escritórios <span class="req">*</span></label>
+              <div class="checkbox-list">
+                <label v-for="e in escritoriosAtribuiveis" :key="e.id" class="checkbox-item">
+                  <input type="checkbox" :value="e.id" v-model="form.escritorios" />
+                  <span>{{ e.nome }}</span>
+                </label>
+              </div>
+              <span class="field-hint" v-if="escritoriosAtribuiveis.length === 0">
+                Nenhum escritório disponível para você.
+              </span>
             </div>
 
             <p class="modal-erro" v-if="erroModal">{{ erroModal }}</p>
@@ -259,7 +264,7 @@ const form = reactive({
   email: '',
   senha: '',
   papel: 'EscritorioUsuario' as Papel,
-  escritorioId: null as string | null,
+  escritorios: [] as string[],
 })
 
 // Só a plataforma concede o papel de plataforma — a API devolve 403 se um
@@ -268,6 +273,12 @@ const papeisDisponiveis = computed<Papel[]>(() =>
   auth.isPlatformAdmin
     ? ['PlatformAdmin', 'EscritorioAdmin', 'EscritorioUsuario']
     : ['EscritorioAdmin', 'EscritorioUsuario'],
+)
+
+// Escritórios que este solicitante pode atribuir: PlatformAdmin vê todos
+// (listarEscritorios); EscritorioAdmin só os próprios vínculos.
+const escritoriosAtribuiveis = computed(() =>
+  auth.isPlatformAdmin ? escritorios.value : auth.escritoriosDisponiveis,
 )
 
 function papelLabel(p: Papel): string {
@@ -279,9 +290,12 @@ async function carregar() {
   try {
     usuarios.value = await listarUsuarios()
     // A listagem de escritórios é rota de PlatformAdmin: pedi-la como admin de
-    // escritório devolveria 403 e sujaria a tela com um erro inútil.
+    // escritório devolveria 403 e sujaria a tela com um erro inútil. O admin de
+    // escritório atribui apenas os próprios vínculos (carregados pela topbar).
     if (auth.isPlatformAdmin) {
       escritorios.value = await listarEscritorios()
+    } else {
+      await auth.carregarEscritorios()
     }
   } catch {
     /* interceptor */
@@ -298,7 +312,7 @@ function abrirCriar() {
   form.email = ''
   form.senha = ''
   form.papel = 'EscritorioUsuario'
-  form.escritorioId = null
+  form.escritorios = []
   modalAberto.value = true
 }
 
@@ -310,7 +324,7 @@ function abrirEditar(u: UsuarioListaDto) {
   form.email = u.email
   form.senha = ''
   form.papel = u.papel
-  form.escritorioId = u.escritorioId
+  form.escritorios = u.escritorios.map((e) => e.id)
   modalAberto.value = true
 }
 
@@ -333,7 +347,7 @@ async function salvar() {
       await atualizarUsuario(usuarioAlvo.value.id, {
         nome: form.nome,
         papel: form.papel,
-        escritorioId: form.escritorioId ?? undefined,
+        escritorios: form.escritorios,
       })
     } else {
       await criarUsuario({
@@ -341,7 +355,7 @@ async function salvar() {
         email: form.email,
         senha: form.senha,
         papel: form.papel,
-        escritorioId: form.escritorioId ?? undefined,
+        escritorios: form.escritorios,
       })
       senhaEntregue.value = { nome: form.nome, senha: form.senha }
     }
@@ -439,6 +453,30 @@ onMounted(carregar)
 .modal-title { margin: 0 0 8px; }
 .modal-sub { font-size: 13px; color: var(--text-secondary); margin: 0 0 18px; line-height: 1.6; }
 .field-hint { font-size: 12px; color: var(--text-muted); }
+
+.checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.checkbox-item input {
+  width: auto;
+  flex-shrink: 0;
+}
 
 .senha-linha { display: flex; gap: 6px; align-items: center; }
 .senha-linha input { flex: 1; min-width: 0; }

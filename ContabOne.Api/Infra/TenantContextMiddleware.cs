@@ -28,7 +28,13 @@ public class TenantContextMiddleware
 
             if (papel == "PlatformAdmin" && Guid.TryParse(usuarioIdStr, out var adminId))
             {
-                tenantContext.FromAdmin(adminId);
+                // Admin com escritório em foco no token é escopado; sem foco,
+                // vê tudo. A semântica do claim mudou (de "o escritório do
+                // usuário" para "o escritório em foco"), o formato não.
+                if (Guid.TryParse(escritorioIdStr, out var focoId))
+                    tenantContext.FromAdminComFoco(adminId, focoId);
+                else
+                    tenantContext.FromAdmin(adminId);
             }
             else if (papel == "Agente")
             {

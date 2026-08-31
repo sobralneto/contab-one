@@ -23,6 +23,22 @@ export interface LoginResponse {
   usuario: UsuarioDto
 }
 
+// ── Foco de escritório ──
+export interface EscritoriosDisponiveisResponse {
+  focoAtual: string | null
+  escritorios: EscritorioVinculoDto[]
+}
+
+export interface TrocarEscritorioRequest {
+  /** null para PlatformAdmin = operar sem foco (visão de todos os escritórios). */
+  escritorioId: string | null
+}
+
+export interface TrocarEscritorioResponse {
+  accessToken: string
+  escritorioId: string | null
+}
+
 // ── Roles ──
 export type Papel = 'PlatformAdmin' | 'EscritorioAdmin' | 'EscritorioUsuario'
 
@@ -293,13 +309,17 @@ export interface CriarAgenteResponse {
 }
 
 // ── Usuários ──
+export interface EscritorioVinculoDto {
+  id: string
+  nome: string
+}
+
 export interface UsuarioListaDto {
   id: string
   nome: string
   email: string
   papel: Papel
-  escritorioId: string | null
-  escritorioNome: string | null
+  escritorios: EscritorioVinculoDto[]
   ativo: boolean
   deveTrocarSenha: boolean
   ultimoLoginEm: string | null
@@ -310,13 +330,13 @@ export interface CriarUsuarioRequest {
   email: string
   senha: string
   papel: Papel
-  escritorioId?: string
+  escritorios?: string[]
 }
 
 export interface AtualizarUsuarioRequest {
   nome?: string
   papel?: Papel
-  escritorioId?: string
+  escritorios?: string[]
 }
 
 export interface ResetarSenhaRequest {

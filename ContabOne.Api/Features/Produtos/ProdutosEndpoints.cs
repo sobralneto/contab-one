@@ -33,9 +33,9 @@ public static class ProdutosEndpoints
         Guid? escritorioId = null)
     {
         // O escopo NUNCA vem da query string para usuário de escritório —
-        // seria IDOR (§5). O parâmetro só é honrado para PlatformAdmin, que
-        // legitimamente gera chave ou navega em nome de outro escritório.
-        var escopo = tenant.IsAdmin ? escritorioId : tenant.EscritorioId;
+        // seria IDOR (§5). O parâmetro só é honrado para PlatformAdmin SEM foco;
+        // com foco, o admin é escopado ao escritório em foco como qualquer outro.
+        var escopo = tenant.EscritorioId ?? (tenant.VeTodosOsEscritorios ? escritorioId : null);
 
         var catalogo = await db.Produtos
             .Where(p => p.Ativo)

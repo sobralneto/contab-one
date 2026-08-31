@@ -249,10 +249,10 @@ public class IsolamentoTest : IClassFixture<ApiFactory>
         Assert.Empty(metricas);
     }
 
-    // ── 7.7: usuário de escritório sem EscritorioId → 401 (fail-closed) ──
+    // ── 7.7: usuário de papel de escritório sem nenhum vínculo → login recusado ──
 
     [Fact]
-    public async Task UsuarioDeEscritorioSemEscritorioId_Recebe401_NaoVeNada()
+    public async Task UsuarioDeEscritorioSemVinculo_LoginRecusado()
     {
         var (escA, escB, _) = await CriarCenarioDoisEscritorios();
         using var db = NovoDbContext();
@@ -261,6 +261,9 @@ public class IsolamentoTest : IClassFixture<ApiFactory>
 
         await AuthHelpers.GarantirRoles(_factory.Services);
 
+        // Usuário com papel de escritório criado direto no banco sem nenhum
+        // vínculo: o login deve recusá-lo (todo usuário de escritório tem ao
+        // menos um vínculo), em vez de emitir um token sem foco.
         var email = $"semEscritorio_{_sufixo}@nfse.local";
         var usuario = new Usuario
         {
@@ -268,7 +271,6 @@ public class IsolamentoTest : IClassFixture<ApiFactory>
             Nome = "Sem Escritório",
             Email = email,
             Papel = PapelUsuario.EscritorioUsuario,
-            EscritorioId = null,
             Ativo = true,
             EmailConfirmed = true,
         };
@@ -282,15 +284,7 @@ public class IsolamentoTest : IClassFixture<ApiFactory>
         var loginResp = await _client.PostAsync("/api/auth/login",
             new StringContent(JsonSerializer.Serialize(new { email, password = "Senha123!" }),
                 Encoding.UTF8, "application/json"));
-        Assert.Equal(HttpStatusCode.OK, loginResp.StatusCode);
-        var loginDoc = JsonDocument.Parse(await loginResp.Content.ReadAsStringAsync());
-        var token = loginDoc.RootElement.GetProperty("accessToken").GetString()!;
-
-        var req = new HttpRequestMessage(HttpMethod.Get, "/api/clientes");
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        var resposta = await _client.SendAsync(req);
-
-        Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, loginResp.StatusCode);
     }
 
     // ── 7.8: a segunda camada — o filtro em si, sem passar pelo middleware ──

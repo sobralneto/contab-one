@@ -16,7 +16,7 @@ public class Escritorio
     public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
     public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
 
-    public ICollection<Usuario> Usuarios { get; set; } = [];
+    public ICollection<UsuarioEscritorio> Usuarios { get; set; } = [];
     public ICollection<Agente> Agentes { get; set; } = [];
     public ICollection<Cliente> Clientes { get; set; } = [];
     public ICollection<Execucao> Execucoes { get; set; } = [];
@@ -46,14 +46,31 @@ public class Usuario : IdentityUser<Guid>
     // que rejeita espaço e acento — "João Silva" seria recusado. UserName
     // passa a receber o e-mail (único por construção) e o nome humano vive aqui.
     public string Nome { get; set; } = string.Empty;
-    public Guid? EscritorioId { get; set; }
-    public Escritorio? Escritorio { get; set; }
     public PapelUsuario Papel { get; set; } = PapelUsuario.EscritorioUsuario;
     public DateTime? UltimoLoginEm { get; set; }
     public bool Ativo { get; set; } = true;
     // Ligado quando um admin cria o usuário ou reseta a senha dele: o guard do
     // frontend prende a navegação na tela de troca até ser desligado.
     public bool DeveTrocarSenha { get; set; }
+
+    public ICollection<UsuarioEscritorio> Escritorios { get; set; } = [];
+}
+
+/// <summary>
+/// Vínculo muitos-para-muitos entre usuário e escritório. Entidade explícita
+/// (e não skip navigation do EF) de propósito: a tabela de junção vai ganhar
+/// colunas — hoje <see cref="CriadoEm"/> para auditoria, adiante papel por
+/// vínculo — e migrar de implícita para explícita depois custaria outra
+/// migração sobre a mesma tabela. É a única fonte da resposta a "este usuário
+/// pode enxergar este escritório?".
+/// </summary>
+public class UsuarioEscritorio
+{
+    public Guid UsuarioId { get; set; }
+    public Usuario Usuario { get; set; } = null!;
+    public Guid EscritorioId { get; set; }
+    public Escritorio Escritorio { get; set; } = null!;
+    public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
 }
 
 /// <summary>

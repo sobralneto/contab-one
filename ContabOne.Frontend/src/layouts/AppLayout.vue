@@ -298,6 +298,31 @@
 
           <span class="topbar-divisor" aria-hidden="true"></span>
 
+          <!-- Escritório em foco. Nome estático quando há uma opção só;
+               <select> nativo (convenção de EscritoriosView) quando há mais de
+               uma; e a visão "todos os escritórios" para PlatformAdmin sem
+               foco. Só aparece com a autenticação confirmada (controle-exibicao-layout). -->
+          <div class="topbar-escritorio" v-if="auth.isAuthenticated">
+            <select
+              v-if="mostraSeletor"
+              v-model="focoSelecionado"
+              class="topbar-escritorio-select"
+              :class="{ 'topbar-escritorio-select--erro': erroFoco }"
+              :title="erroFoco || 'Escritório em foco'"
+              aria-label="Escritório em foco"
+              @change="aoTrocarFoco"
+            >
+              <option v-if="auth.isPlatformAdmin" :value="''">Todos os escritórios</option>
+              <option v-for="e in auth.escritoriosDisponiveis" :key="e.id" :value="e.id">
+                {{ e.nome }}
+              </option>
+            </select>
+            <span v-else class="topbar-escritorio-nome" :title="escritorioLabel">
+              {{ escritorioLabel }}
+            </span>
+            <span v-if="erroFoco" class="topbar-escritorio-erro" role="alert">{{ erroFoco }}</span>
+          </div>
+
           <div class="topbar-user">
             <!-- title no avatar: em tela estreita o nome e o papel somem, e o
                  avatar sozinho precisa continuar identificando quem está logado. -->
@@ -386,7 +411,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useUiStore } from "@/stores/ui";
@@ -484,6 +509,57 @@ const papelLabel = computed(() => {
       return "";
   }
 });
+
+// ── Escritório em foco (topbar) ──
+
+// Seletor aparece para PlatformAdmin (sempre, com a opção "Todos") e para quem
+// tem mais de um escritório. Uma opção só é texto estático, sem controle.
+const mostraSeletor = computed(
+  () => auth.isPlatformAdmin || auth.escritoriosDisponiveis.length > 1,
+);
+
+// Rótulo do estado estático (uma opção só): o nome do escritório, "Todos os
+// escritórios" para admin sem foco, e "…" enquanto o nome ainda não resolveu.
+const escritorioLabel = computed(() => {
+  if (auth.isPlatformAdmin && !auth.focoEscritorioId) return "Todos os escritórios";
+  if (auth.focoEscritorioNome) return auth.focoEscritorioNome;
+  return "…";
+});
+
+const focoSelecionado = ref("");
+const erroFoco = ref("");
+
+watch(
+  () => auth.focoEscritorioId,
+  (foco) => {
+    focoSelecionado.value = foco ?? "";
+  },
+);
+
+onMounted(() => {
+  focoSelecionado.value = auth.focoEscritorioId ?? "";
+  if (auth.isAuthenticated) void auth.carregarEscritorios();
+});
+
+async function aoTrocarFoco() {
+  const novo = focoSelecionado.value === "" ? null : focoSelecionado.value;
+  erroFoco.value = "";
+  try {
+    await auth.trocarFoco(novo);
+    router.replace("/");
+  } catch (err) {
+    // Falha: o foco anterior fica intacto (a store não o alterou) e o seletor
+    // volta para ele, com a recusa sinalizada.
+    focoSelecionado.value = auth.focoEscritorioId ?? "";
+    erroFoco.value = mensagemDeErroFoco(err);
+    window.setTimeout(() => (erroFoco.value = ""), 5000);
+  }
+}
+
+function mensagemDeErroFoco(err: unknown): string {
+  const e = err as { response?: { data?: { erro?: string } } };
+  return e?.response?.data?.erro ?? "Não foi possível trocar de escritório.";
+}
 
 async function onLogout() {
   try {
@@ -745,6 +821,63 @@ async function onLogout() {
   height: 24px;
   background: var(--border);
   flex-shrink: 0;
+}
+
+/* ── Escritório em foco ── */
+.topbar-escritorio {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.topbar-escritorio-nome {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.topbar-escritorio-select {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 1.75rem 0.3rem 0.5rem;
+  max-width: 220px;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.topbar-escritorio-select:hover {
+  border-color: var(--border-forte);
+  color: var(--text-primary);
+}
+
+.topbar-escritorio-select--erro {
+  border-color: var(--erro);
+  color: var(--erro);
+}
+
+.topbar-escritorio-erro {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  max-width: 320px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--erro);
+  background: var(--erro-suave);
+  border: 1px solid var(--erro);
+  border-radius: 6px;
+  padding: 6px 10px;
+  white-space: normal;
 }
 
 /* ── Bloco do usuário (vindo do rodapé da sidebar) ── */

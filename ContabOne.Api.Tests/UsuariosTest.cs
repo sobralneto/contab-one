@@ -122,25 +122,24 @@ public class UsuariosTest : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task EscritorioIdDoCorpoNaoTiraOUsuarioDoEscritorioDoAdmin()
+    public async Task AdminDeEscritorioNaoVinculaUsuarioAOutroEscritorio()
     {
-        var (escA, escB, tokenA) = await CriarCenarioAsync();
+        var (_, escB, tokenA) = await CriarCenarioAsync();
 
-        // Admin de A tenta criar usuário dentro de B pelo corpo da requisição.
+        // Admin de A tenta criar usuário dentro de B pela lista de escritórios.
         var resposta = await _client.SendAsync(Requisicao(HttpMethod.Post, "/api/usuarios", tokenA, new
         {
             nome = "Tentativa Cross-Tenant",
             email = $"cross_{_sufixo}@nfse.local",
             senha = "Senha123!",
             papel = "EscritorioUsuario",
-            escritorioId = escB,
+            escritorios = new[] { escB },
         }));
 
-        Assert.Equal(HttpStatusCode.Created, resposta.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, resposta.StatusCode);
 
         using var db = NovoDbContext();
-        var criado = db.Users.First(u => u.Email == $"cross_{_sufixo}@nfse.local");
-        Assert.Equal(escA, criado.EscritorioId); // o token manda, não o corpo
+        Assert.False(db.Users.Any(u => u.Email == $"cross_{_sufixo}@nfse.local"));
     }
 
     // ── Escalação de privilégio ──
@@ -213,7 +212,7 @@ public class UsuariosTest : IClassFixture<ApiFactory>
     [Fact]
     public async Task EmailDuplicadoRetornaErroDeValidacao()
     {
-        var (_, _, tokenA) = await CriarCenarioAsync();
+        var (escA, _, tokenA) = await CriarCenarioAsync();
         var email = $"duplicado_{_sufixo}@nfse.local";
 
         var corpo = new
@@ -222,6 +221,7 @@ public class UsuariosTest : IClassFixture<ApiFactory>
             email,
             senha = "Senha123!",
             papel = "EscritorioUsuario",
+            escritorios = new[] { escA },
         };
 
         var primeira = await _client.SendAsync(Requisicao(HttpMethod.Post, "/api/usuarios", tokenA, corpo));
@@ -256,7 +256,7 @@ public class UsuariosTest : IClassFixture<ApiFactory>
     [Fact]
     public async Task UsuarioCriadoComNomeDeGenteLogaComPapelCorretoEExigeTrocaDeSenha()
     {
-        var (_, _, tokenA) = await CriarCenarioAsync();
+        var (escA, _, tokenA) = await CriarCenarioAsync();
         var email = $"joao_{_sufixo}@nfse.local";
 
         // "João Silva" tem espaço e acento: iria falhar se o nome fosse gravado
@@ -267,6 +267,7 @@ public class UsuariosTest : IClassFixture<ApiFactory>
             email,
             senha = "Senha123!",
             papel = "EscritorioAdmin",
+            escritorios = new[] { escA },
         }));
         Assert.Equal(HttpStatusCode.Created, criacao.StatusCode);
 
@@ -287,7 +288,7 @@ public class UsuariosTest : IClassFixture<ApiFactory>
     [Fact]
     public async Task TrocaDeSenhaLimpaAExigenciaEDevolveTokenNovo()
     {
-        var (_, _, tokenA) = await CriarCenarioAsync();
+        var (escA, _, tokenA) = await CriarCenarioAsync();
         var email = $"troca_{_sufixo}@nfse.local";
 
         await _client.SendAsync(Requisicao(HttpMethod.Post, "/api/usuarios", tokenA, new
@@ -296,6 +297,7 @@ public class UsuariosTest : IClassFixture<ApiFactory>
             email,
             senha = "Senha123!",
             papel = "EscritorioUsuario",
+            escritorios = new[] { escA },
         }));
 
         var token = await AuthHelpers.Login(_client, email, "Senha123!");
@@ -382,7 +384,7 @@ public class UsuariosTest : IClassFixture<ApiFactory>
 
         using var db = NovoDbContext();
         var criado = db.Users.First(u => u.Email == email);
-        Assert.Null(criado.EscritorioId); // admin de plataforma não pertence a escritório
+        Assert.Empty(db.UsuariosEscritorios.Where(v => v.UsuarioId == criado.Id)); // admin de plataforma não pertence a escritório
     }
 
     [Fact]

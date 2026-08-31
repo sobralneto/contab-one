@@ -16,6 +16,7 @@ public class AppDbContext : IdentityDbContext<Usuario, IdentityRole<Guid>, Guid>
     }
 
     public DbSet<Escritorio> Escritorios => Set<Escritorio>();
+    public DbSet<UsuarioEscritorio> UsuariosEscritorios => Set<UsuarioEscritorio>();
     public DbSet<Plano> Planos => Set<Plano>();
     public DbSet<Dominio> Dominios => Set<Dominio>();
     public DbSet<Produto> Produtos => Set<Produto>();
@@ -87,6 +88,22 @@ public class AppDbContext : IdentityDbContext<Usuario, IdentityRole<Guid>, Guid>
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.CnpjHash).IsUnique();
             e.HasOne(x => x.Plano).WithMany(p => p.Escritorios).HasForeignKey(x => x.PlanoId);
+        });
+
+        modelBuilder.Entity<UsuarioEscritorio>(e =>
+        {
+            // Chave composta: um usuário tem no máximo uma linha por escritório.
+            e.HasKey(x => new { x.UsuarioId, x.EscritorioId });
+            // A resolução de foco consulta os vínculos de um usuário por
+            // UsuarioId (chave) e, na edição, os vínculos de um escritório por
+            // EscritorioId — os dois lados merecem índice.
+            e.HasIndex(x => x.EscritorioId);
+            // Cascade dos dois lados: apagar usuário ou escritório não deixa
+            // vínculo órfão.
+            e.HasOne(x => x.Usuario).WithMany(u => u.Escritorios)
+                .HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Escritorio).WithMany(es => es.Usuarios)
+                .HasForeignKey(x => x.EscritorioId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Plano>(e =>

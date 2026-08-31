@@ -63,7 +63,8 @@ public static class DashboardEndpoints
         string? ate,
         Guid? escritorioId,
         Guid? clienteId,
-        AppDbContext db)
+        AppDbContext db,
+        TenantContext tenant)
     {
         var query = db.ExecucaoMetricas.AsQueryable();
 
@@ -73,9 +74,10 @@ public static class DashboardEndpoints
         if (!string.IsNullOrEmpty(ate))
             query = query.Where(m => m.Competencia.CompareTo(ate) <= 0);
 
-        // Admin filtra por escritório; demais papéis por cliente (o query filter
-        // global já limita ao próprio tenancy, então um escritorioId alheio não vaza)
-        if (escritorioId.HasValue)
+        // Admin SEM foco filtra por escritório; demais papéis (e admin com foco)
+        // já são limitados ao próprio tenancy pelo query filter global, então um
+        // escritorioId alheio não vaza.
+        if (escritorioId.HasValue && tenant.VeTodosOsEscritorios)
             query = query.Where(m => m.Cliente!.EscritorioId == escritorioId.Value);
 
         if (clienteId.HasValue)
