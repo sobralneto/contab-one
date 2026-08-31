@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conversor PGDAS-D → Dashboard · L&J Contabilidade</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --wine:#9c2b25; --wine-dark:#7d211c; --charcoal:#5a5a50;
+    --bg:#f4f2ee; --card:#ffffff; --ink:#2b2b28; --muted:#8a8a80;
+    --line:#e6e2db; --green:#2e7d32; --gold:#c99a2e; --paper:#fbfaf7;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}
+  .mono{font-family:'SF Mono','Consolas','Courier New',monospace;font-variant-numeric:tabular-nums}
+
+  /* ---- App shell ---- */
+  .topbar{background:var(--wine);color:#fff;padding:0}
+  .topbar-inner{max-width:1180px;margin:0 auto;padding:16px 20px;display:flex;align-items:center;gap:14px}
+  .logo{height:44px;width:auto;border-radius:8px;background:var(--logo-bg,#fff);padding:5px 9px;flex-shrink:0;
+    display:block;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+  .topbar h1{font-size:18px;font-weight:700;letter-spacing:.2px}
+  .topbar .tag{font-size:12px;opacity:.85;font-weight:400}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:26px 20px 60px}
+
+  /* ---- Stepper ---- */
+  .steps{display:flex;gap:8px;margin-bottom:26px;flex-wrap:wrap}
+  .step{flex:1;min-width:180px;display:flex;align-items:center;gap:10px;padding:12px 14px;
+    background:var(--card);border:1px solid var(--line);border-radius:10px;opacity:.5;transition:.25s}
+  .step.active{opacity:1;border-color:var(--wine);box-shadow:0 2px 8px rgba(0,0,0,.07)}
+  .step.done{opacity:1}
+  .step .num{width:26px;height:26px;border-radius:50%;background:var(--charcoal);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
+  .step.active .num{background:var(--wine)}
+  .step.done .num{background:var(--green)}
+  .step .lbl{font-size:13px;font-weight:600}
+  .step .sub2{font-size:11px;color:var(--muted);font-weight:400}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:26px;margin-bottom:20px}
+  .panel h2{font-size:15px;color:var(--wine);font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+  .panel h2::before{content:'';width:4px;height:16px;background:var(--wine);border-radius:2px}
+  .panel .hint{font-size:13px;color:var(--muted);margin-bottom:18px}
+
+  /* ---- Dropzone ---- */
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:44px 20px;text-align:center;
+    background:var(--paper);cursor:pointer;transition:.2s}
+  .drop:hover,.drop.over{border-color:var(--wine);background:#fbf6f5}
+  .drop .ic{font-size:38px;margin-bottom:10px}
+  .drop .big{font-size:15px;font-weight:600;color:var(--ink)}
+  .drop .small{font-size:12.5px;color:var(--muted);margin-top:5px}
+  input[type=file]{display:none}
+
+  .filelist{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+  .fileitem{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--paper);
+    border:1px solid var(--line);border-radius:8px;font-size:13px}
+  .fileitem .fic{color:var(--wine);font-weight:700}
+  .fileitem .fname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fileitem .fstat{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}
+  .fstat.ok{background:#e3f0e3;color:var(--green)}
+  .fstat.err{background:#f7e3e0;color:var(--wine)}
+  .fstat.wait{background:#eee9e2;color:var(--charcoal)}
+  .fileitem .rm{cursor:pointer;color:var(--muted);font-weight:700;padding:2px 6px;border-radius:4px}
+  .fileitem .rm:hover{background:#efe9e2;color:var(--wine)}
+
+  /* ---- Buttons ---- */
+  .btn{border:none;border-radius:9px;padding:12px 22px;font-size:14px;font-weight:700;cursor:pointer;
+    transition:.18s;font-family:inherit}
+  .btn-primary{background:var(--wine);color:#fff}
+  .btn-primary:hover{background:var(--wine-dark)}
+  .btn-primary:disabled{background:#c9beb8;cursor:not-allowed}
+  .btn-ghost{background:transparent;color:var(--charcoal);border:1px solid var(--line)}
+  .btn-ghost:hover{border-color:var(--charcoal)}
+  .btn-row{display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;align-items:center}
+  .spacer{flex:1}
+
+  /* ---- Empresa form ---- */
+  .grid-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:6px}
+  .field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);
+    font-weight:600;margin-bottom:5px}
+  .field input{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;
+    font-family:inherit;background:var(--paper)}
+  .field input:focus{outline:none;border-color:var(--wine);background:#fff}
+
+  /* ---- Conference table ---- */
+  .conf-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+  table.conf{border-collapse:collapse;width:100%;font-size:12.5px;min-width:820px}
+  table.conf th{background:var(--charcoal);color:#fff;padding:9px 7px;font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.3px;font-weight:600;white-space:nowrap;position:sticky;top:0}
+  table.conf th:first-child{text-align:left}
+  table.conf td{padding:4px 5px;border-bottom:1px solid var(--line);text-align:right}
+  table.conf td:first-child{text-align:left;font-weight:600;color:var(--charcoal);white-space:nowrap;padding-left:10px}
+  table.conf input{width:88px;padding:5px 7px;border:1px solid transparent;border-radius:5px;font-size:12px;
+    text-align:right;font-family:'SF Mono','Consolas',monospace;font-variant-numeric:tabular-nums;background:transparent}
+  table.conf input:hover{border-color:var(--line);background:var(--paper)}
+  table.conf input:focus{outline:none;border-color:var(--wine);background:#fff}
+  table.conf input.mes{width:74px;text-align:left;font-family:inherit;font-weight:600}
+  table.conf input.venc{width:92px;text-align:center}
+  table.conf tr.semmov td{background:#f4f6fb}
+  table.conf tr.semmov td:first-child::after{content:'sem movimento';display:block;font-size:9.5px;
+    font-weight:700;color:#4a6fa5;letter-spacing:.3px;text-transform:uppercase}
+  table.conf tr.badrow td{background:#fdf3f1}
+  table.conf tr.badrow input{color:var(--wine)}
+  .conf-flag{font-size:11px;font-weight:700}
+  .conf-flag.ok{color:var(--green)} .conf-flag.bad{color:var(--wine)}
+  .paidcell{cursor:pointer;user-select:none;font-size:15px;text-align:center}
+  .rm-mes{cursor:pointer;color:var(--muted);font-weight:700}
+  .rm-mes:hover{color:var(--wine)}
+  .conf-note{font-size:12px;color:var(--muted);margin-top:12px;display:flex;gap:16px;flex-wrap:wrap}
+  .conf-note b{color:var(--ink)}
+
+  .alert{padding:12px 16px;border-radius:9px;font-size:13px;margin-bottom:16px;display:none}
+  .alert.show{display:block}
+  .alert.warn{background:#fdf3e6;color:#8a5a1a;border:1px solid #f0d9b0}
+  .alert.err{background:#f9e6e3;color:var(--wine);border:1px solid #e6bdb6}
+
+  .brandpick{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+  .brandbtn{display:flex;align-items:center;gap:12px;padding:12px 14px;border:2px solid var(--line);
+    border-radius:12px;background:var(--card);cursor:pointer;font-family:inherit;transition:.18s;text-align:left}
+  .brandbtn:hover{border-color:var(--charcoal)}
+  .brandbtn.sel{border-color:var(--wine);box-shadow:0 2px 10px rgba(0,0,0,.07)}
+  .brandbtn img{height:38px;width:auto;border-radius:6px;display:block}
+  .brandbtn span{font-size:13.5px;font-weight:700;color:var(--ink)}
+  .brandbtn.sel span{color:var(--wine)}
+  .hidden{display:none !important}
+
+  /* progress */
+  .prog{height:6px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:14px;display:none}
+  .prog.show{display:block}
+  .prog i{display:block;height:100%;background:var(--wine);width:0;transition:width .3s}
+  .prog-lbl{font-size:12px;color:var(--muted);margin-top:8px;text-align:center;display:none}
+  .prog-lbl.show{display:block}
+
+  /* dashboard preview holder */
+  #dashHost{background:var(--bg);border-radius:12px;padding:0;margin-top:8px}
+  footer{max-width:1180px;margin:0 auto;padding:20px;text-align:center;font-size:11.5px;color:var(--muted)}
+  @media(max-width:640px){.step{min-width:calc(50% - 4px)}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <img class="logo" src="" alt="Escritório">
+    <div>
+      <h1>Conversor PGDAS-D → Dashboard</h1>
+      <div class="tag">Carregue os extratos do Simples Nacional e gere o painel de apuração em PDF</div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="steps">
+    <div class="step active" id="st1"><div class="num">1</div><div><div class="lbl">Carregar extratos</div><div class="sub2">PDF do PGDAS-D 2018</div></div></div>
+    <div class="step" id="st2"><div class="num">2</div><div><div class="lbl">Conferir dados</div><div class="sub2">Revise e ajuste os valores</div></div></div>
+    <div class="step" id="st3"><div class="num">3</div><div><div class="lbl">Gerar dashboard</div><div class="sub2">Visualizar e baixar PDF</div></div></div>
+  </div>
+
+  <!-- STEP 1 -->
+  <div id="panel1">
+    <div class="panel">
+      <h2>Escritório contábil</h2>
+      <div class="hint">Escolha a identidade visual do relatório. Pode ser alterada a qualquer momento antes de gerar.</div>
+      <div class="brandpick">
+        <button class="brandbtn" data-brand="lj" id="bLj"><img src="" alt="L&J"><span>L&J Contabilidade</span></button>
+        <button class="brandbtn" data-brand="mudahr" id="bMu"><img src="" alt="MUDAHR"><span>MUDAHR Contabilidade</span></button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Extratos do Simples Nacional</h2>
+      <div class="hint">Aceita um PDF por competência ou um único PDF com vários meses. Layout esperado: PGDAS-D 2018. Tudo é processado no seu navegador — nenhum arquivo é enviado para servidores.</div>
+      <label class="drop" id="drop">
+        <div class="ic">📄</div>
+        <div class="big">Clique para selecionar ou arraste os PDFs aqui</div>
+        <div class="small">Extrato do Simples Nacional (PGDAS-D) · .pdf</div>
+        <input type="file" id="fileInput" accept="application/pdf" multiple>
+      </label>
+      <div class="prog" id="prog"><i></i></div>
+      <div class="prog-lbl" id="progLbl"></div>
+      <div class="filelist" id="filelist"></div>
+
+      <div class="btn-row">
+        <div class="spacer"></div>
+        <button class="btn btn-primary" id="toStep2" disabled>Conferir dados →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div id="panel2" class="hidden">
+    <div class="panel">
+      <h2>Identificação da empresa</h2>
+      <div class="hint">Preenchido a partir do extrato. Ajuste se necessário — a sigla aparece no logo do dashboard.</div>
+      <div class="grid-form">
+        <div class="field"><label>Razão social</label><input id="e_nome" placeholder="EMPRESA LTDA"></div>
+        <div class="field"><label>Sigla (logo)</label><input id="e_sigla" maxlength="3" placeholder="XY"></div>
+        <div class="field"><label>CNPJ</label><input id="e_cnpj" placeholder="00.000.000/0001-00"></div>
+        <div class="field"><label>Município/UF</label><input id="e_mun" placeholder="Cidade/UF"></div>
+        <div class="field"><label>Anexo / atividade</label><input id="e_anexo" placeholder="Anexo III (Serviços)"></div>
+        <div class="field"><label>Escritório contábil</label><input id="e_escr" placeholder="L&J Contabilidade"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Conferência dos valores extraídos</h2>
+      <div class="hint">Os campos são editáveis. A coluna <b>Confere</b> valida se a soma dos tributos bate com o DAS de cada mês. Clique no ✓/✗ da coluna <b>Pago</b> para alternar o status.</div>
+      <div class="alert warn" id="confWarn"></div>
+      <div class="conf-wrap">
+        <table class="conf" id="confTable">
+          <thead>
+            <tr>
+              <th>Competência</th><th>Vencimento DAS</th><th>Faturamento</th><th>RBT12</th>
+              <th>IRPJ</th><th>CSLL</th><th>COFINS</th><th>PIS</th>
+              <th>INSS/CPP</th><th>ICMS</th><th>IPI</th><th>ISS</th>
+              <th>DAS</th><th>Confere</th><th>Pago</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="confBody"></tbody>
+        </table>
+      </div>
+      <div class="conf-note">
+        <span>💡 <b>Confere</b>: soma dos tributos × DAS informado (tolerância R$ 0,05)</span>
+        <span>✓ = DAS pago · ✗ = em aberto</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="backTo1">← Voltar</button>
+        <div class="spacer"></div>
+        <button class="btn btn-primary" id="toStep3">Gerar dashboard →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div id="panel3" class="hidden">
+    <div class="panel">
+      <h2>Dashboard gerado</h2>
+      <div class="hint">Pré-visualização abaixo. Baixe em PDF (formato A4 retrato, várias páginas) ou salve o HTML interativo.</div>
+      <div class="btn-row" style="margin-top:0;margin-bottom:6px">
+        <button class="btn btn-ghost" id="backTo2">← Ajustar dados</button>
+        <button class="btn btn-ghost" id="novoBtn">↺ Gerar novo</button>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost" id="dlHtml">Baixar HTML</button>
+        <button class="btn btn-primary" id="dlPdf">Baixar PDF</button>
+      </div>
+      <div class="prog-lbl" id="pdfLbl"></div>
+      <div id="dashHost"></div>
+    </div>
+  </div>
+
+</div>
+
+<footer>Ferramenta autônoma · processamento 100% local no navegador · L&J Contabilidade</footer>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* ===== IDENTIDADES (escritório) ===== */
+const LOGOS = {
+  lj: 'data:image/jpeg;base64,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',
+  mudahr: 'data:image/jpeg;base64,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'
+};
+const THEMES = {
+  lj: {
+    nome:'L&J Contabilidade',
+    wine:'#9c2b25', wineDark:'#7d211c', charcoal:'#5a5a50', gold:'#c99a2e',
+    bg:'#f4f2ee', card:'#ffffff', ink:'#2b2b28', muted:'#8a8a80',
+    line:'#e6e2db', soft:'#efe9e2', paper:'#fbfaf7', hover:'#faf7f3',
+    dropHover:'#fbf6f5', disabled:'#c9beb8',
+    logoBg:'#ffffff', logoBorder:'rgba(0,0,0,.06)',
+    trib:{inss:'#5a5a50',iss:'#7a7a6e',icms:'#8a8478',ipi:'#9a9488',
+          cofins:'#c99a2e',pis:'#d9b25a',irpj:'#9c2b25',csll:'#b5433c'}
+  },
+  mudahr: {
+    nome:'MUDAHR Contabilidade',
+    wine:'#430753', wineDark:'#2d0338', charcoal:'#810753', gold:'#04d795',
+    bg:'#ffffff', card:'#ffffff', ink:'#000000', muted:'#6b6b72',
+    line:'#e5e0ee', soft:'#f2f0fe', paper:'#faf9ff', hover:'#f7f5ff',
+    dropHover:'#f5f2fb', disabled:'#c8c2d6',
+    logoBg:'#430753', logoBorder:'rgba(255,255,255,.15)',
+    trib:{inss:'#430753',iss:'#a07fc0',icms:'#6a4c85',ipi:'#8a6aa0',
+          cofins:'#04d795',pis:'#4de3b3',irpj:'#810753',csll:'#b0179a'}
+  }
+};
+let BRAND = 'lj';
+function T(){ return THEMES[BRAND]; }
+
+/* ============================================================
+   ESTADO
+============================================================ */
+let COMPETENCIAS = [];  // [{mes, faturamento, rbt12, irpj,...,iss, das, pago}]
+let EMPRESA = {};
+const FILES = [];       // {name, status}
+
+const TRIBS = ['irpj','csll','cofins','pis','inss','icms','ipi','iss'];
+const MESNOMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+/* ============================================================
+   PARSER PGDAS-D 2018
+   Estratégia: extrair texto por página, achar blocos de apuração.
+   Cada apuração tem: PA (mm/aaaa), RPA, RBT12, e a seção 6 do DAS.
+============================================================ */
+function num(str){
+  if(str==null) return 0;
+  str = (''+str).trim().replace(/\./g,'').replace(',','.');
+  const v = parseFloat(str);
+  return isNaN(v) ? 0 : v;
+}
+function vencimentoDe(pa){ // pa = "mm/aaaa" -> "20/mm+1/aaaa"
+  const m = (''+pa).match(/(\d{2})\/(\d{4})/);
+  if(!m) return '';
+  let mm = parseInt(m[1],10)+1, yy = parseInt(m[2],10);
+  if(mm>12){ mm=1; yy++; }
+  return '20/' + String(mm).padStart(2,'0') + '/' + yy;
+}
+function mesLabel(pa){ // "03/2026" -> "Mar/26"
+  const m = pa.match(/(\d{2})\/(\d{4})/);
+  if(!m) return pa;
+  const mi = parseInt(m[1],10)-1;
+  return (MESNOMES[mi]||m[1]) + '/' + m[2].slice(2);
+}
+
+async function extractText(file){
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+  let pages = [];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page = await pdf.getPage(p);
+    const tc = await page.getTextContent();
+    // reconstrói linhas por posição Y
+    const items = tc.items.map(i=>({x:i.transform[4], y:Math.round(i.transform[5]), s:i.str}));
+    const rows = {};
+    items.forEach(it=>{ (rows[it.y] = rows[it.y]||[]).push(it); });
+    const lines = Object.keys(rows).map(Number).sort((a,b)=>b-a).map(y=>
+      rows[y].sort((a,b)=>a.x-b.x).map(i=>i.s).join(' ').replace(/\s+/g,' ').trim()
+    );
+    pages.push(lines.join('\n'));
+  }
+  return pages.join('\n\f\n'); // \f marca quebra de página
+}
+
+/* Divide o texto completo em apurações/declarações individuais.
+   Extrato: "Informações da Apuração <17 dígitos>"
+   Declaração: "Período de Apuração: dd/mm/aaaa a dd/mm/aaaa" (Declaratório) */
+function splitApuracoes(fullText){
+  // tenta primeiro o extrato
+  let marks = [...fullText.matchAll(/Informações da Apuração\s+(\d{17})/g)];
+  if(marks.length===0){
+    // declaração: quebra por "Nº da Declaração" ou pelo cabeçalho declaratório
+    marks = [...fullText.matchAll(/Simples Nacional\s*[-–]\s*Declaratório/g)];
+  }
+  if(marks.length===0) return [fullText]; // um bloco só, deixa o parser tentar
+  const blocks = [];
+  for(let i=0;i<marks.length;i++){
+    const start = marks[i].index;
+    const end = (i+1<marks.length) ? marks[i+1].index : fullText.length;
+    blocks.push(fullText.slice(start,end));
+  }
+  return blocks;
+}
+
+/* Classifica o anexo a partir do texto da atividade */
+function classificaAnexo(block){
+  if(/Prestação de Serviços/i.test(block)){
+    const m = block.match(/Anexo\s+([IVX]+)/i);
+    return 'Anexo ' + (m?m[1]:'III') + ' (Serviços)';
+  }
+  if(/Venda de mercadorias industrializadas pelo contribuinte/i.test(block))
+    return 'Anexo II (Indústria)';
+  if(/Revenda de mercadorias/i.test(block))
+    return 'Anexo I (Comércio)';
+  return '';
+}
+
+/* Segregação da receita em 4 categorias fiscais, a partir das PARCELAS de cada
+   atividade do PGDAS-D. Cada parcela pode vir marcada com:
+     "Substituição tributária de: ..."  e/ou  "Tributação monofásica de: ..."
+   A combinação dessas marcas define a categoria:
+     nenhuma        -> Tributado
+     só monofásica  -> Tributado/Monofásico
+     só ST          -> Com ST
+     ambas          -> Com ST/Monofásico
+   Quando a atividade não detalha parcelas, a receita informada vai para
+   "Tributado" (atividade integralmente tributada, ex.: serviços do Anexo III). */
+const SEG_CATS = ['Tributado','Tributado/Monofásico','Com ST','Com ST/Monofásico'];
+
+function extraiSegregacao(block){
+  const tot = {'Tributado':0,'Tributado/Monofásico':0,'Com ST':0,'Com ST/Monofásico':0};
+  let achou = false;
+
+  const partes = block.split(/Valor do Débito por Tributo para a Atividade/).slice(1);
+  partes.forEach(p=>{
+    // corta a parte no início da próxima seção para não vazar conteúdo
+    const fim = p.search(/Informações por Estabelecimento|Totais do Estabelecimento|\d\)\s*Total Geral/);
+    const bloco = fim>0 ? p.slice(0,fim) : p;
+
+    const rbi = bloco.match(/Receita Bruta Informada:\s*R\$\s*([\d.,]+)/);
+    if(!rbi) return;
+    const receitaAtiv = num(rbi[1]);
+
+    // parcelas dessa atividade
+    const marcas = [...bloco.matchAll(/Parcela\s+\d+:\s*R\$\s*([\d.,]+)/g)];
+    if(marcas.length===0){
+      tot['Tributado'] += receitaAtiv; achou = true; return;
+    }
+    marcas.forEach((mm,ix)=>{
+      const ini = mm.index + mm[0].length;
+      const prox = (ix+1<marcas.length) ? marcas[ix+1].index : bloco.length;
+      const desc = bloco.slice(ini, prox);
+      const temST   = /Substituição tributária de:/i.test(desc);
+      const temMono = /Tributação monofásica de:/i.test(desc);
+      let cat;
+      if(temST && temMono) cat='Com ST/Monofásico';
+      else if(temST)       cat='Com ST';
+      else if(temMono)     cat='Tributado/Monofásico';
+      else                 cat='Tributado';
+      tot[cat] += num(mm[1]); achou = true;
+    });
+  });
+
+  if(!achou) return [];
+  return SEG_CATS.map(k=>({anexo:k, receita:tot[k]}));
+}
+
+/* Histórico mensal de receita bruta (seção 2.2.1 - Mercado Interno).
+   Usado para o gráfico de evolução do faturamento dos últimos 12 meses. */
+function extraiHistorico(block){
+  const h = {};
+  const i1 = block.search(/2\.2\.1\)?\s*Mercado Interno/i);
+  if(i1 < 0) return h;
+  let resto = block.slice(i1);
+  const i2 = resto.search(/2\.2\.2\)?\s*Mercado Externo/i);
+  if(i2 > 0) resto = resto.slice(0, i2);
+  for(const m of resto.matchAll(/(\d{2}\/\d{4})\s+([\d.]+,\d{2})/g)){
+    h[m[1]] = num(m[2]);
+  }
+  return h;
+}
+
+/* Extrai uma competência de um bloco (extrato OU declaração) */
+function parseApuracao(block){
+  const c = {irpj:0,csll:0,cofins:0,pis:0,inss:0,icms:0,ipi:0,iss:0};
+  const isDecl = /Declaratório/i.test(block) || /Nº da Declaração/i.test(block);
+
+  // Período de Apuração — extrato: "(PA): mm/aaaa" | declaração: "Período de Apuração: 01/mm/aaaa a 31/mm/aaaa"
+  let pa = block.match(/Período de Apuração\s*\(PA\):\s*(\d{2}\/\d{4})/);
+  if(!pa){
+    const pd = block.match(/Período de Apuração:\s*\d{2}\/(\d{2})\/(\d{4})\s*a\s*\d{2}\/\d{2}\/\d{4}/);
+    if(pd) pa=[null, pd[1]+'/'+pd[2]];
+  }
+  if(!pa) return null;
+  c.mes = mesLabel(pa[1]); c._pa = pa[1];
+  c.vencimento = vencimentoDe(pa[1]);
+
+  // Nome empresarial (extrato: "Nome Empresarial:" | declaração: "Nome empresarial:")
+  const nome = block.match(/Nome [Ee]mpresarial:\s*([^\n]+?)(?:\s{2,}|\n|Optante|Data)/);
+  if(nome) c._nome = nome[1].trim();
+  const cnpjEst = block.match(/CNPJ (?:Estabelecimento|Matriz):\s*([\d.\/-]+)/);
+  if(cnpjEst) c._cnpj = cnpjEst[1].trim();
+  const mun = block.match(/Município:\s*([A-Za-zÀ-ú ]+?)\s+UF:\s*([A-Z]{2})/);
+  if(mun) c._mun = mun[1].trim().replace(/\s+/g,' ') + '/' + mun[2];
+
+  // Anexo pela atividade
+  c._anexoTxt = classificaAnexo(block);
+
+  // Segregação por atividade (com/sem ST etc.)
+  const segs = extraiSegregacao(block);
+  if(segs.length) c._seg = segs;
+  c._hist = extraiHistorico(block);
+
+  // RPA
+  const rpa = block.match(/Receita Bruta do PA\s*\(RPA\)\s*[-–]\s*Competência\s+([\d.,]+)/);
+  if(rpa){ c.faturamento = num(rpa[1]); c._rpaOk = true; }
+
+  // RBA — receita bruta acumulada no ano-calendário corrente.
+  // Extrato: rótulo e valor na mesma linha. Declaração: o valor cai na linha
+  // seguinte ao rótulo e o "(RBA)" só aparece depois.
+  let rba = block.match(/ano-calendário corrente\s*\(RBA\)\s+([\d.,]+)/);
+  if(!rba) rba = block.match(/ano-calendário corrente\s*\n\s*([\d.]+,\d{2})/);
+  if(!rba) rba = block.match(/\(RBA\)\s+([\d.]+,\d{2})/);
+  if(rba) c.rba = num(rba[1]);
+
+  // Sublimite estadual de receita anual (varia por UF; o documento informa o valor)
+  const sub = block.match(/Sublimite de Receita Anual\s*\(R\$\):\s*([\d.,]+)/i);
+  if(sub) c.sublimite = num(sub[1]);
+  const imp = block.match(/Impedido de recolher ICMS\/ISS no DAS:\s*(Sim|Não)/i);
+  if(imp) c.impedido = /sim/i.test(imp[1]);
+
+  // RBT12 — o valor vem após o rótulo "doze meses anteriores" (extrato)
+  // ou entre "doze meses anteriores" e "ao PA (RBT12)" (declaração)
+  let rbt = block.match(/doze meses anteriores\s*\n\s*([\d.,]+)/);        // declaração: valor na linha do meio
+  if(!rbt) rbt = block.match(/doze meses anteriores ao PA\s*\n\s*([\d.,]+)/); // extrato
+  if(!rbt) rbt = block.match(/\(RBT12\)\s+([\d.,]+)/);                    // fallback linha única
+  if(rbt) c.rbt12 = num(rbt[1]);
+
+  let m;
+  if(isDecl){
+    // DECLARAÇÃO: tributos em "2.8) Total Geral da Empresa" → "Total do Débito Declarado (exigível + suspenso)"
+    let sec = block;
+    const i28 = block.indexOf('2.8) Total Geral da Empresa');
+    if(i28>=0) sec = block.slice(i28);
+    // linha após o cabeçalho de colunas
+    m = sec.match(/Total do Débito Declarado[^\n]*\n\s*IRPJ\s+CSLL\s+COFINS\s+PIS\/Pasep\s+INSS\/CPP\s+ICMS\s+IPI\s+ISS\s+Total\s*\n\s*([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/i);
+    if(!m){
+      // fallback: "Totais do Estabelecimento" (mesmo formato)
+      const iTot = block.indexOf('Totais do Estabelecimento');
+      if(iTot>=0){ const s2=block.slice(iTot);
+        m = s2.match(/IRPJ\s+CSLL\s+COFINS\s+PIS\/Pasep\s+INSS\/CPP\s+ICMS\s+IPI\s+ISS\s+Total\s*\n\s*([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/i);
+      }
+    }
+    if(m){ c.irpj=num(m[1]);c.csll=num(m[2]);c.cofins=num(m[3]);c.pis=num(m[4]);
+           c.inss=num(m[5]);c.icms=num(m[6]);c.ipi=num(m[7]);c.iss=num(m[8]);c.das=num(m[9]); }
+    // DAS também no resumo 2.6 (confirma total)
+    if(!c.das){ const r=block.match(/Valor Total do Débito Declarado[^\n]*\n[^\n]*?([\d.,]+)\s*$/m); if(r) c.das=num(r[1]); }
+    // Declaração não informa pagamento
+    c.pago = null;
+  } else {
+    // EXTRATO: seção 6
+    const sec6i = block.indexOf('6) Informações sobre DAS');
+    const sec6 = sec6i>=0 ? block.slice(sec6i) : block;
+    m = sec6.match(/IRPJ\s+([\d.,]+)\s+CSLL\s+([\d.,]+)\s+COFINS\s+([\d.,]+)\s+PIS\/PASEP\s+([\d.,]+)/i);
+    if(m){ c.irpj=num(m[1]); c.csll=num(m[2]); c.cofins=num(m[3]); c.pis=num(m[4]); }
+    m = sec6.match(/INSS\/CPP\s+([\d.,]+)\s+ICMS\s+([\d.,]+)\s+IPI\s+([\d.,]+)\s+ISS\s+([\d.,]+)/i);
+    if(m){ c.inss=num(m[1]); c.icms=num(m[2]); c.ipi=num(m[3]); c.iss=num(m[4]); }
+    m = sec6.match(/Principal\s+([\d.,]+)/i);
+    if(m) c.das = num(m[1]);
+    if(!c.das){ const t = sec6.match(/Total\s+([\d.,]+)/i); if(t) c.das = num(t[1]); }
+    if(/Não foi reconhecido pagamento/i.test(sec6)) c.pago = false;
+    else if(/Data de Pagamento[\s\S]*?\d{2}\/\d{2}\/\d{4}/i.test(sec6)) c.pago = true;
+  }
+
+  // Declaração/Extrato SEM MOVIMENTO: a linha do RPA existe mas vem zerada.
+  // Nesse caso a competência é válida — só não há receita nem DAS a recolher.
+  c.faturamento = c.faturamento || 0;
+  c.das = c.das || 0;
+  c.semMovimento = (c.faturamento === 0 && c.das === 0);
+  if(c.semMovimento){
+    if(!c._rpaOk) return null;      // sem a linha do RPA não é uma apuração de verdade
+    c.pago = null;                  // não há DAS a pagar
+  } else if(!c.faturamento || !c.das){
+    return null;                    // dados incompletos/ilegíveis
+  }
+  return c;
+}
+
+/* ============================================================
+   SELETOR DE ESCRITÓRIO
+============================================================ */
+function setBrand(b){
+  BRAND = b;
+  applyTheme();
+  document.querySelectorAll('.brandbtn').forEach(el=>el.classList.toggle('sel', el.dataset.brand===b));
+  // preenche as miniaturas
+  document.querySelectorAll('.brandbtn').forEach(el=>{
+    const im=el.querySelector('img'); if(im) im.src=LOGOS[el.dataset.brand];
+  });
+  // rótulos textuais
+  const t=T();
+  document.title = 'Conversor PGDAS-D → Dashboard · ' + t.nome;
+  const foot=document.querySelector('footer');
+  if(foot) foot.textContent = 'Ferramenta autônoma · processamento 100% local no navegador · ' + t.nome;
+  const escr=document.getElementById('e_escr');
+  if(escr){ escr.placeholder = t.nome; if(!escr.value || Object.values(THEMES).some(x=>x.nome===escr.value)) escr.value=t.nome; }
+  if(EMPRESA) EMPRESA.escritorio = t.nome;
+}
+document.querySelectorAll('.brandbtn').forEach(el=>el.onclick=()=>setBrand(el.dataset.brand));
+
+/* ============================================================
+   FLUXO STEP 1 — leitura
+============================================================ */
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('fileInput');
+const filelistEl = document.getElementById('filelist');
+const prog = document.getElementById('prog');
+const progBar = prog.querySelector('i');
+const progLbl = document.getElementById('progLbl');
+
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>{ handleFiles(e.dataTransfer.files); });
+fileInput.addEventListener('change',e=>{ handleFiles(e.target.files); });
+
+async function handleFiles(fileObjs){
+  const arr = [...fileObjs].filter(f=>f.type==='application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+  if(!arr.length) return;
+  prog.classList.add('show'); progLbl.classList.add('show');
+  const collected = [];
+  let done=0;
+  for(const f of arr){
+    const rec = {name:f.name, status:'wait'};
+    FILES.push(rec); renderFileList();
+    progLbl.textContent = 'Lendo '+f.name+'…';
+    try{
+      const text = await extractText(f);
+      const blocks = splitApuracoes(text);
+      let got=0, zer=0;
+      blocks.forEach(b=>{ const c=parseApuracao(b); if(c){ collected.push(c); got++; if(c.semMovimento) zer++; } });
+      rec.status = got>0 ? 'ok' : 'err';
+      rec.count = got; rec.zero = zer;
+    }catch(err){
+      console.error(err); rec.status='err';
+    }
+    done++; progBar.style.width = Math.round(done/arr.length*100)+'%';
+    renderFileList();
+  }
+  // mescla nas COMPETENCIAS (dedup por _pa)
+  collected.forEach(c=>{
+    const ix = COMPETENCIAS.findIndex(x=>x._pa===c._pa);
+    if(ix>=0) COMPETENCIAS[ix]=c; else COMPETENCIAS.push(c);
+  });
+  // ordena cronologicamente
+  COMPETENCIAS.sort((a,b)=>{
+    const pa=a._pa.split('/'), pb=b._pa.split('/');
+    return (pa[1]-pb[1]) || (pa[0]-pb[0]);
+  });
+  // captura empresa do primeiro registro que tiver
+  const src = collected.find(c=>c._nome) || collected[0];
+  if(src){
+    EMPRESA.nome = titleCase(src._nome||'Empresa');
+    EMPRESA.sigla = siglaFrom(src._nome||'SN');
+    EMPRESA.cnpj = src._cnpj||'';
+    EMPRESA.municipio = src._mun||'';
+    EMPRESA.anexo = src._anexoTxt||'';
+    EMPRESA.escritorio = T().nome;
+  }
+  progLbl.textContent = COMPETENCIAS.length+' competência(s) lida(s).';
+  document.getElementById('toStep2').disabled = COMPETENCIAS.length===0;
+}
+
+function titleCase(s){
+  return s.toLowerCase().replace(/\b([a-zà-ú])/g,(m,c)=>c.toUpperCase())
+    .replace(/\bLtda\b/i,'LTDA').replace(/\bMe\b/i,'ME').replace(/\bEpp\b/i,'EPP')
+    .replace(/\bL & J\b/i,'L&J').replace(/\bE\b/g,'e');
+}
+function siglaFrom(nome){
+  const stop = ['DE','DA','DO','DOS','DAS','E','LTDA','ME','EPP','SOCIEDADE','SIMPLES'];
+  const words = nome.toUpperCase().replace(/[^A-ZÀ-Ú& ]/g,'').split(/\s+/).filter(w=>w && !stop.includes(w));
+  if(nome.includes('&')) return 'L&J'; // caso L & J
+  if(words.length>=2) return (words[0][0]+words[1][0]);
+  return (words[0]||'SN').slice(0,2).toUpperCase();
+}
+
+function renderFileList(){
+  filelistEl.innerHTML='';
+  FILES.forEach((f,i)=>{
+    const div=document.createElement('div'); div.className='fileitem';
+    const stcls = f.status==='ok'?'ok':(f.status==='err'?'err':'wait');
+    let sttxt;
+    if(f.status==='ok'){ sttxt = f.count+' mês(es)'; if(f.zero) sttxt += ' · '+f.zero+' sem movimento'; }
+    else sttxt = (f.status==='err'?'falhou':'lendo…');
+    div.innerHTML = `<span class="fic">PDF</span>
+      <span class="fname">${f.name}</span>
+      <span class="fstat ${stcls}">${sttxt}</span>
+      <span class="rm" data-i="${i}" title="Remover">✕</span>`;
+    filelistEl.appendChild(div);
+  });
+  filelistEl.querySelectorAll('.rm').forEach(b=>b.onclick=()=>{
+    FILES.splice(+b.dataset.i,1); renderFileList();
+  });
+}
+
+/* ============================================================
+   STEP 2 — conferência
+============================================================ */
+function goStep(n){
+  [1,2,3].forEach(i=>{
+    document.getElementById('panel'+i).classList.toggle('hidden', i!==n);
+    const st=document.getElementById('st'+i);
+    st.classList.toggle('active', i===n);
+    st.classList.toggle('done', i<n);
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+document.getElementById('toStep2').onclick=()=>{ fillEmpresa(); renderConf(); goStep(2); };
+document.getElementById('backTo1').onclick=()=>goStep(1);
+document.getElementById('backTo2').onclick=()=>goStep(2);
+document.getElementById('novoBtn').onclick=()=>resetTool();
+
+function resetTool(){
+  // limpa estado (mantém o escritório selecionado)
+  COMPETENCIAS=[]; EMPRESA={escritorio:T().nome}; FILES.length=0;
+  chartRefs.forEach(c=>{try{c.destroy()}catch(e){}}); chartRefs=[];
+  // limpa UI
+  document.getElementById('dashHost').innerHTML='';
+  document.getElementById('confBody').innerHTML='';
+  filelistEl.innerHTML='';
+  fileInput.value='';
+  progBar.style.width='0'; prog.classList.remove('show');
+  progLbl.textContent=''; progLbl.classList.remove('show');
+  document.getElementById('pdfLbl').classList.remove('show');
+  document.getElementById('confWarn').className='alert warn';
+  ['e_nome','e_sigla','e_cnpj','e_mun','e_anexo','e_escr'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+  document.getElementById('toStep2').disabled=true;
+  goStep(1);
+}
+
+function fillEmpresa(){
+  e_nome.value=EMPRESA.nome||''; e_sigla.value=EMPRESA.sigla||'';
+  e_cnpj.value=EMPRESA.cnpj||''; e_mun.value=EMPRESA.municipio||'';
+  e_anexo.value=EMPRESA.anexo||''; e_escr.value=EMPRESA.escritorio||'';
+}
+
+function renderConf(){
+  const tb=document.getElementById('confBody'); tb.innerHTML='';
+  COMPETENCIAS.forEach((c,i)=>{
+    const tr=document.createElement('tr'); tr.dataset.i=i;
+    if(c.semMovimento) tr.classList.add('semmov');
+    const inp=(k,cls='')=>`<input class="${cls}" data-i="${i}" data-k="${k}" value="${fmt(c[k]||0)}">`;
+    tr.innerHTML =
+      `<td><input class="mes" data-i="${i}" data-k="mes" value="${c.mes||''}"></td>`+
+      `<td><input class="venc" data-i="${i}" data-k="vencimento" value="${c.vencimento||''}" placeholder="dd/mm/aaaa"></td>`+
+      `<td>${inp('faturamento')}</td><td>${inp('rbt12')}</td>`+
+      TRIBS.map(t=>`<td>${inp(t)}</td>`).join('')+
+      `<td>${inp('das')}</td>`+
+      `<td class="conf-flag" data-flag="${i}"></td>`+
+      `<td class="paidcell" data-paid="${i}"></td>`+
+      `<td><span class="rm-mes" data-del="${i}" title="Remover linha">✕</span></td>`;
+    tb.appendChild(tr);
+  });
+  // eventos
+  tb.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('input',()=>{
+      const i=+inp.dataset.i,k=inp.dataset.k;
+      COMPETENCIAS[i][k] = (k==='mes'||k==='vencimento')? inp.value : num(inp.value);
+      if(k!=='mes'&&k!=='vencimento') validateRow(i);
+    });
+    inp.addEventListener('blur',()=>{
+      const k=inp.dataset.k;
+      if(k!=='mes'&&k!=='vencimento'){ inp.value=fmt(num(inp.value)); }
+    });
+  });
+  tb.querySelectorAll('[data-paid]').forEach(el=>{
+    el.onclick=()=>{ const i=+el.dataset.paid; const cur=COMPETENCIAS[i].pago;
+      COMPETENCIAS[i].pago = (cur===true)?false:(cur===false?null:true); paintPaid(i); };
+  });
+  tb.querySelectorAll('[data-del]').forEach(el=>{
+    el.onclick=()=>{ COMPETENCIAS.splice(+el.dataset.del,1); renderConf(); };
+  });
+  COMPETENCIAS.forEach((_,i)=>{ validateRow(i); paintPaid(i); });
+}
+
+function fmt(v){ return (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function validateRow(i){
+  const c=COMPETENCIAS[i];
+  const soma=TRIBS.reduce((s,t)=>s+(+c[t]||0),0);
+  const ok=Math.abs(soma-(+c.das||0))<=0.05;
+  const flag=document.querySelector(`[data-flag="${i}"]`);
+  const row=document.querySelector(`tr[data-i="${i}"]`);
+  if(flag){ flag.textContent=ok?'✓ ok':'✗ '+fmt(soma); flag.className='conf-flag '+(ok?'ok':'bad'); }
+  if(row) row.classList.toggle('badrow',!ok);
+  updateConfWarn();
+}
+function paintPaid(i){
+  const el=document.querySelector(`[data-paid="${i}"]`);
+  const p=COMPETENCIAS[i].pago;
+  el.textContent = p===true?'✓':(p===false?'✗':'—');
+  el.style.color = p===true?'var(--green)':(p===false?'var(--wine)':'var(--muted)');
+}
+function updateConfWarn(){
+  const bad=COMPETENCIAS.filter((c)=>{
+    const soma=TRIBS.reduce((s,t)=>s+(+c[t]||0),0);
+    return Math.abs(soma-(+c.das||0))>0.05;
+  });
+  const zer=COMPETENCIAS.filter(c=>c.semMovimento);
+  const w=document.getElementById('confWarn');
+  const partes=[];
+  if(zer.length) partes.push(`<b>Sem movimento:</b> ${zer.map(z=>z.mes).join(', ')} — apuração zerada (sem receita e sem DAS).`);
+  if(bad.length) partes.push(`⚠ ${bad.length} competência(s) com soma dos tributos diferente do DAS: <b>${bad.map(b=>b.mes).join(', ')}</b>. Ajuste antes de gerar, ou gere assim mesmo se o DAS informado estiver correto.`);
+  if(partes.length){ w.className='alert warn show'; w.innerHTML=partes.join('<br>'); }
+  else { w.className='alert warn'; }
+}
+
+/* ============================================================
+   STEP 3 — dashboard (motor portado da skill)
+============================================================ */
+document.getElementById('toStep3').onclick=()=>{
+  EMPRESA={nome:e_nome.value.trim()||'Empresa', sigla:(e_sigla.value.trim()||'SN').toUpperCase(),
+    cnpj:e_cnpj.value.trim(), municipio:e_mun.value.trim(), anexo:e_anexo.value.trim(),
+    escritorio:e_escr.value.trim()};
+  buildDashboard();
+  goStep(3);
+};
+
+function coresTrib(){ return T().trib; }
+const TRIB_LABEL = {irpj:'IRPJ',csll:'CSLL',cofins:'COFINS',pis:'PIS',inss:'INSS/CPP',icms:'ICMS',ipi:'IPI',iss:'ISS'};
+
+function brl(v){ return (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function pc(v,d=2){ return (v||0).toFixed(d).replace('.',',')+'%'; }
+
+let chartRefs=[];
+function buildDashboard(){
+  chartRefs.forEach(c=>{try{c.destroy()}catch(e){}}); chartRefs=[];
+  const C=COMPETENCIAS;
+  const meses=C.map(c=>c.mes);
+  const fat=C.map(c=>+c.faturamento||0);
+  const das=C.map(c=>+c.das||0);
+  const rbt12=C.map(c=>+c.rbt12||0);
+  const fatTot=fat.reduce((a,b)=>a+b,0), dasTot=das.reduce((a,b)=>a+b,0);
+  const carga=C.map((c,i)=>fat[i]?das[i]/fat[i]*100:0);
+  const cargaMedia=fatTot?dasTot/fatTot*100:0;
+
+  const tribTot={}; TRIBS.forEach(t=>tribTot[t]=C.reduce((s,c)=>s+(+c[t]||0),0));
+  let pesos=TRIBS.filter(t=>tribTot[t]>0).map(t=>({chave:t,label:TRIB_LABEL[t],valor:tribTot[t],
+    pctFat:fatTot?tribTot[t]/fatTot*100:0, pctDas:dasTot?tribTot[t]/dasTot*100:0, cor:coresTrib()[t]}));
+  pesos.sort((a,b)=>b.valor-a.valor);
+
+  const ult=C[C.length-1];
+  // composição do DAS apenas da competência mais recente
+  const pesosUlt = TRIBS.filter(t=>(+ult[t]||0)>0).map(t=>({
+    label:TRIB_LABEL[t], valor:+ult[t]||0, cor:coresTrib()[t]
+  })).sort((a,b)=>b.valor-a.valor);
+  // segregação da competência mais recente: usa as faixas do extrato/declaração se houver
+  let seg;
+  if(ult.semMovimento){
+    seg = SEG_CATS.map(k=>({anexo:k, receita:0, pct:0}));
+  } else {
+    const base = (ult._seg && ult._seg.length)
+      ? ult._seg
+      : [{anexo:'Tributado', receita:+ult.faturamento||0}];   // atividade única = tributada
+    const mapa = {}; SEG_CATS.forEach(k=>mapa[k]=0);
+    base.forEach(x=>{ if(mapa[x.anexo]!==undefined) mapa[x.anexo]+=x.receita; });
+    const somaSeg = SEG_CATS.reduce((s,k)=>s+mapa[k],0) || (+ult.faturamento||1);
+    seg = SEG_CATS.map(k=>({anexo:k, receita:mapa[k], pct:mapa[k]/somaSeg*100}));
+  }
+  const pend=C.filter(c=>c.pago===false).map(c=>c.mes);
+  const semMov=C.filter(c=>c.semMovimento).map(c=>c.mes);
+
+  // ---- Sublimite estadual x receita acumulada no ano ----
+  const SUBLIMITE_PADRAO = 3600000;
+  const subLim = (+ult.sublimite||0) > 0 ? +ult.sublimite : SUBLIMITE_PADRAO;
+  // RBA informada no documento; se ausente, soma as competências do mesmo ano-calendário
+  let rbaVal = +ult.rba || 0;
+  if(!rbaVal && ult._pa){
+    const ano = ult._pa.split('/')[1];
+    rbaVal = C.filter(c=>c._pa && c._pa.split('/')[1]===ano)
+              .reduce((s,c)=>s+(+c.faturamento||0),0);
+  }
+  const subPct = subLim ? rbaVal/subLim*100 : 0;
+  const subSaldo = subLim - rbaVal;
+  let subNivel, subMsg;
+  if(subPct >= 100){
+    subNivel='excedido';
+    subMsg='Sublimite ultrapassado. O ICMS/ISS deixa de ser recolhido no DAS e passa ao regime normal — verificar a data de efeito e comunicar o cliente.';
+  } else if(subPct >= 80){
+    subNivel='atencao';
+    subMsg='Faixa de atenção: mais de 80% do sublimite consumido. Acompanhar o faturamento dos próximos meses.';
+  } else {
+    subNivel='ok';
+    subMsg='Dentro do sublimite estadual.';
+  }
+  const subImped = ult.impedido===true;
+
+  // ---- série de faturamento dos últimos 12 meses ----
+  // combina o histórico declarado (seção 2.2.1) com as competências carregadas
+  const histMap = {};
+  C.forEach(c=>{ if(c._hist) Object.assign(histMap, c._hist); });
+  C.forEach(c=>{ if(c._pa) histMap[c._pa] = +c.faturamento||0; });  // competências têm prioridade
+  const chaves = Object.keys(histMap).sort((a,b)=>{
+    const [ma,ya]=a.split('/'), [mb,yb]=b.split('/');
+    return (ya-yb) || (ma-mb);
+  });
+  // corta em 12 meses terminando na competência mais recente
+  const fimIx = ult._pa && chaves.indexOf(ult._pa)>=0 ? chaves.indexOf(ult._pa) : chaves.length-1;
+  const janela = chaves.slice(Math.max(0, fimIx-11), fimIx+1);
+  const histLabels = janela.map(k=>mesLabel(k));
+  const histVals = janela.map(k=>histMap[k]);
+  // Séries segregadas: só existem nos meses cujo PDF foi carregado.
+  // A seção "Receitas Brutas Anteriores" traz apenas o total do mês, sem quebra —
+  // por isso os demais meses ficam com null (barra ausente) em vez de zero.
+  const histSeg = {}; SEG_CATS.forEach(k=>histSeg[k]=[]);
+  let temSeg = false;
+  janela.forEach(k=>{
+    const comp = C.find(x=>x._pa===k && x._seg && x._seg.length);
+    if(comp){
+      temSeg = true;
+      const mp={}; SEG_CATS.forEach(s=>mp[s]=0);
+      comp._seg.forEach(x=>{ if(mp[x.anexo]!==undefined) mp[x.anexo]+=x.receita; });
+      SEG_CATS.forEach(s=>histSeg[s].push(mp[s]));
+    } else {
+      SEG_CATS.forEach(s=>histSeg[s].push(null));
+    }
+  });
+  const maior=pesos[0];
+
+  const rbtUlt=rbt12[rbt12.length-1]||0;
+  let rbtVar=''; if(rbt12[0]) rbtVar='Variou '+pc((rbt12[rbt12.length-1]/rbt12[0]-1)*100,1)+' no período';
+
+  const host=document.getElementById('dashHost');
+  host.innerHTML = dashHTML({meses,fat,das,rbt12,fatTot,dasTot,carga,cargaMedia,tribTot,pesos,pesosUlt,
+    ult,seg,pend,semMov,maior,rbtUlt,rbtVar,histLabels,histVals,temSeg,
+    subLim,rbaVal,subPct,subSaldo,subNivel,subMsg,subImped});
+
+  // charts
+  const cmin=Math.max(0,Math.min(...carga)-0.3), cmax=Math.max(...carga)+0.3;
+  drawCharts({meses,fat,das,carga,pesos,pesosUlt,dasTot,cmin,cmax,histLabels,histVals,histSeg,temSeg});
+}
+
+function dashHTML(m){
+  const E=EMPRESA;
+  const sub=[E.cnpj,E.municipio,E.anexo].filter(Boolean).join(' • ')||'Apuração Simples Nacional • PGDAS-D';
+  const periodo=`${m.meses[0]} a ${m.meses[m.meses.length-1]} — ${m.meses.length} competências`;
+  const status = m.ult.semMovimento
+    ? '<span class="hl-status semmov">SEM MOVIMENTO</span>' : '';
+  const rbtKpi = m.rbtUlt?`<div class="hl-metric"><span class="hl-lbl">RBT12</span><span class="hl-num">R$ ${brl(m.rbtUlt)}</span></div>`:'';
+  const segCards = m.seg.map(s=>`<div class="seg-item"><div class="seg-anexo">${s.anexo}</div>
+    <div class="seg-val">R$ ${brl(s.receita)}</div><div class="seg-pct">${pc(s.pct,1)} da receita</div></div>`).join('');
+  const kpiMaior = m.maior?`<div class="kpi"><div class="lbl">Maior peso: ${m.maior.label}</div>
+    <div class="val">${pc(m.maior.pctFat)}</div><div class="foot">${pc(m.maior.pctDas)} do valor do DAS</div></div>`:'';
+  const kpiRbt = m.rbtUlt?`<div class="kpi alt"><div class="lbl">RBT12 (${m.meses[m.meses.length-1]})</div>
+    <div class="val">R$ ${brl(m.rbtUlt)}</div><div class="foot">${m.rbtVar}</div></div>`:'';
+
+  const linhasPeso=m.pesos.map(p=>`<tr><td>${p.label}</td><td>${brl(p.valor)}</td>
+    <td class="pill">${pc(p.pctFat)}</td><td>${pc(p.pctDas)}</td></tr>`).join('');
+  const tribAtivos=m.pesos.map(p=>p.chave);
+  const thTrib=m.pesos.map(p=>`<th>${p.label}</th>`).join('');
+  const linhasMes=m.meses.map((mes,i)=>{
+    const cels=tribAtivos.map(k=>`<td>${brl(COMPETENCIAS[i][k]||0)}</td>`).join('');
+    return `<tr><td>${mes}</td><td>${brl(m.fat[i])}</td>${cels}<td>${brl(m.das[i])}</td><td class="pill">${pc(m.carga[i])}</td></tr>`;
+  }).join('');
+  const totCels=tribAtivos.map(k=>`<td>${brl(m.tribTot[k])}</td>`).join('');
+
+  const ins=[];
+  if(m.maior) ins.push(`<div class="ins"><b>${m.maior.label} domina a guia.</b> Representa <b>${pc(m.maior.pctDas)}</b> do DAS e pesa <b>${pc(m.maior.pctFat)}</b> do faturamento — o maior componente da carga.</div>`);
+  if(m.pesos[1]){const s=m.pesos[1]; ins.push(`<div class="ins"><b>${s.label} é o 2º maior.</b> ${pc(s.pctDas)} do DAS (${pc(s.pctFat)} do faturamento).</div>`);}
+  // oscilação considera apenas competências COM movimento (0% distorceria a leitura)
+  const cargasAtivas = m.carga.filter((v,i)=>(+m.fat[i]||0)>0);
+  if(cargasAtivas.length){
+    const obs = cargasAtivas.length<m.carga.length ? ' (desconsiderando meses sem movimento)' : '';
+    ins.push(`<div class="ins"><b>Carga efetiva.</b> Média de <b>${pc(m.cargaMedia)}</b>, oscilando entre ${pc(Math.min(...cargasAtivas))} e ${pc(Math.max(...cargasAtivas))} no período${obs}.</div>`);
+  }
+  if(m.semMov && m.semMov.length){
+    const todos = m.semMov.length===m.meses.length;
+    ins.unshift(`<div class="ins"><b>${todos?'Período sem movimento.':'Competências sem movimento.'}</b> ${m.semMov.join(', ')} ${m.semMov.length===1?'foi declarada':'foram declaradas'} sem receita e sem DAS a recolher${todos?' — não há apuração no período.':'.'}</div>`);
+  }
+  if(m.pend.length) ins.push(`<div class="ins"><b>Pendência de pagamento.</b> ${m.pend.join(', ')} sem pagamento reconhecido — conferir.</div>`);
+
+  const rodape=(E.escritorio?E.escritorio+' • ':'')+'Fonte: Extratos PGDAS-D 2018';
+
+  return `<div class="dash" id="dashRoot">
+    <div id="dashPart1">
+    <header class="d-head">
+      <div class="d-brand"><img class="d-logo" src="${LOGOS[BRAND]}" alt="${E.sigla}">
+        <div><h1>${E.nome} — Apuração Simples Nacional</h1><div class="d-sub">${sub}</div></div></div>
+      <div class="d-period">${periodo}</div>
+    </header>
+    <div class="highlight">
+      <div class="hl-head"><span class="hl-tag">Competência mais recente</span>
+        <span class="hl-mes">${m.ult.mes}</span>${status}</div>
+      <div class="hl-metrics">
+        <div class="hl-metric bordado"><span class="hl-lbl">Faturamento</span><span class="hl-num">R$ ${brl(m.ult.faturamento)}</span></div>
+        <div class="hl-metric bordado"><span class="hl-lbl">Valor do DAS</span><span class="hl-num">R$ ${brl(m.ult.das)}</span></div>
+        <div class="hl-metric bordado"><span class="hl-lbl">Alíquota efetiva</span><span class="hl-num accent">${pc(m.ult.faturamento?m.ult.das/m.ult.faturamento*100:0)}</span></div>
+        <div class="hl-metric inverso"><span class="hl-lbl">Vencimento do DAS</span><span class="hl-num">${m.ult.vencimento||'—'}</span></div>
+        ${rbtKpi}
+      </div>
+      <div class="hl-seg-title">Segregação da receita por anexo</div>
+      <div class="hl-seg">${segCards}</div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="lbl">Faturamento Acumulado</div><div class="val">R$ ${brl(m.fatTot)}</div><div class="foot">Média mensal R$ ${brl(m.fatTot/m.meses.length)}</div></div>
+      <div class="kpi alt"><div class="lbl">DAS Acumulado</div><div class="val">R$ ${brl(m.dasTot)}</div><div class="foot">Média mensal R$ ${brl(m.dasTot/m.meses.length)}</div></div>
+      <div class="kpi gd"><div class="lbl">Carga Efetiva Média</div><div class="val">${pc(m.cargaMedia)}</div><div class="foot">DAS ÷ Faturamento</div></div>
+      ${kpiMaior}${kpiRbt}
+    </div>
+    <div class="card sublim ${m.subNivel}">
+      <h3>Sublimite estadual — receita acumulada no ano</h3>
+      <div class="sub-top">
+        <div class="sub-box"><span class="sub-lbl">Acumulado no ano (RBA)</span><span class="sub-num">R$ ${brl(m.rbaVal)}</span></div>
+        <div class="sub-box"><span class="sub-lbl">Sublimite da UF</span><span class="sub-num">R$ ${brl(m.subLim)}</span></div>
+        <div class="sub-box"><span class="sub-lbl">${m.subSaldo>=0?'Margem disponível':'Excedente'}</span><span class="sub-num ${m.subSaldo<0?'neg':''}">R$ ${brl(Math.abs(m.subSaldo))}</span></div>
+        <div class="sub-box"><span class="sub-lbl">Consumo</span><span class="sub-num destaque">${pc(m.subPct,1)}</span></div>
+      </div>
+      <div class="sub-bar"><i style="width:${Math.min(100,m.subPct).toFixed(1)}%"></i><u style="left:80%"></u></div>
+      <div class="sub-msg">${m.subMsg}${m.subImped?' <b>O documento indica que a empresa está impedida de recolher ICMS/ISS no DAS.</b>':''}</div>
+    </div>
+
+    <div class="grid2">
+      <div class="card"><h3>Faturamento × DAS por mês</h3><div class="cbox"><canvas id="chBar"></canvas></div></div>
+      <div class="card"><h3>Composição do DAS por tributo — ${m.ult.mes}</h3><div class="cbox"><canvas id="chPie"></canvas></div></div>
+    </div>
+    <div class="card"><h3>Evolução do faturamento — últimos 12 meses${m.temSeg?' (segregado nas competências carregadas)':''}</h3><div class="cbox" style="height:270px"><canvas id="chLine"></canvas></div></div>
+    <div class="split">
+      <div class="card"><h3>Peso de cada tributo sobre o faturamento</h3>
+        <table class="dt"><thead><tr><th>Tributo</th><th>Valor acum.</th><th>% s/ Fatur.</th><th>% do DAS</th></tr></thead>
+          <tbody>${linhasPeso}</tbody>
+          <tfoot><tr><td>DAS Total</td><td>${brl(m.dasTot)}</td><td>${pc(m.cargaMedia)}</td><td>100%</td></tr></tfoot></table></div>
+      <div class="card"><h3>Peso dos tributos (% do faturamento)</h3><div class="cbox"><canvas id="chTrib"></canvas></div></div>
+    </div>
+    </div><!--/dashPart1-->
+    <div id="dashPart2">
+    <div class="card"><h3>Detalhamento mensal — tributos dentro da guia</h3>
+      <table class="dt"><thead><tr><th>Competência</th><th>Faturamento</th>${thTrib}<th>DAS</th><th>Carga %</th></tr></thead>
+        <tbody>${linhasMes}</tbody>
+        <tfoot><tr><td>TOTAL</td><td>${brl(m.fatTot)}</td>${totCels}<td>${brl(m.dasTot)}</td><td>${pc(m.cargaMedia)}</td></tr></tfoot></table></div>
+    <div class="insights"><h3>Leitura rápida</h3><div class="ins-grid">${ins.join('')}</div></div>
+    <div class="d-foot">${rodape}</div>
+    </div><!--/dashPart2-->
+  </div>`;
+}
+
+function drawCharts({meses,fat,das,carga,pesos,pesosUlt,dasTot,cmin,cmax,histLabels,histVals,histSeg,temSeg}){
+  const WINE=T().wine,CHAR=T().charcoal,GOLD=T().gold;
+  const opt={responsive:true,maintainAspectRatio:false,animation:false};
+  chartRefs.push(new Chart(chBar,{type:'bar',data:{labels:meses,datasets:[
+    {label:'Faturamento',data:fat,backgroundColor:WINE,borderRadius:4,yAxisID:'y'},
+    {label:'DAS',data:das,backgroundColor:GOLD,borderRadius:4,yAxisID:'y1'}]},
+    options:{...opt,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},
+    scales:{y:{position:'left',ticks:{callback:v=>'R$'+(v/1000)+'k',font:{size:10}}},
+    y1:{position:'right',grid:{drawOnChartArea:false},ticks:{callback:v=>'R$'+(v/1000)+'k',font:{size:10}}}}}}));
+  const pu = (pesosUlt&&pesosUlt.length)?pesosUlt:pesos;
+  const puTot = pu.reduce((s,p)=>s+p.valor,0)||1;
+  chartRefs.push(new Chart(chPie,{type:'doughnut',data:{labels:pu.map(p=>p.label),
+    datasets:[{data:pu.map(p=>p.valor),backgroundColor:pu.map(p=>p.cor),borderWidth:2,borderColor:'#fff'}]},
+    options:{...opt,cutout:'55%',plugins:{legend:{position:'right',labels:{font:{size:11},padding:8}},
+    tooltip:{callbacks:{label:c=>c.label+': R$ '+brl(c.parsed)+' ('+(c.parsed/puTot*100).toFixed(1)+'%)'}}}}}));
+  const t=T();
+  const CORES_SEG = {
+    'Tributado': t.wine,
+    'Tributado/Monofásico': t.trib.csll,
+    'Com ST': t.charcoal,
+    'Com ST/Monofásico': t.gold
+  };
+  const dsSeg = temSeg ? SEG_CATS.map(k=>({
+    type:'bar', label:k, data:histSeg[k], backgroundColor:CORES_SEG[k],
+    stack:'seg', borderWidth:0, order:2
+  })) : [];
+  const maxTot = Math.max(...histVals.filter(v=>v!=null), 0) * 1.1 || 1;
+  chartRefs.push(new Chart(chLine,{
+    data:{labels:histLabels, datasets:[
+      ...dsSeg,
+      {type:'line', label:'Faturamento total', data:histVals, borderColor:WINE,
+       backgroundColor:WINE+'14', fill:!temSeg, tension:.35, pointBackgroundColor:WINE,
+       pointRadius:3, yAxisID:'yT', order:1}
+    ]},
+    options:{...opt,
+      plugins:{
+        legend:{display:temSeg, position:'bottom', labels:{font:{size:10},boxWidth:12,padding:8}},
+        tooltip:{callbacks:{label:c=>c.dataset.label+': R$ '+brl(c.parsed.y)}}
+      },
+      scales:{
+        y:{stacked:true, beginAtZero:true, max:maxTot,
+           ticks:{callback:v=>'R$'+(v/1000).toFixed(0)+'k',font:{size:10}}},
+        yT:{display:false, beginAtZero:true, max:maxTot},
+        x:{stacked:true, ticks:{font:{size:9}}}
+      }}}));
+  chartRefs.push(new Chart(chTrib,{type:'bar',data:{labels:pesos.map(p=>p.label),
+    datasets:[{label:'% do faturamento',data:pesos.map(p=>+p.pctFat.toFixed(2)),
+    backgroundColor:pesos.map(p=>p.cor),borderRadius:4}]},
+    options:{...opt,indexAxis:'y',plugins:{legend:{display:false},
+    tooltip:{callbacks:{label:c=>pc(c.parsed.x)+' do faturamento'}}},
+    scales:{x:{ticks:{callback:v=>v.toFixed(1).replace('.',',')+'%',font:{size:10}}}}}}));
+}
+
+/* ============================================================
+   DASHBOARD CSS (injetado) — mesma identidade da skill
+============================================================ */
+function dashCss(){const t=T(); return `
+.dash{max-width:1120px;margin:0 auto;padding:22px;font-family:'Segoe UI',Arial,sans-serif;color:${t.ink};background:${t.bg}}
+.dash h1{font-size:20px;color:${t.wine};font-weight:700}
+.d-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;border-bottom:3px solid ${t.wine};padding-bottom:14px;margin-bottom:20px}
+.d-brand{display:flex;align-items:center;gap:12px}
+.d-logo{height:46px;width:auto;border-radius:8px;background:${t.logoBg};padding:5px 9px;display:block;border:1px solid ${t.logoBorder};box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.d-sub{font-size:12.5px;color:${t.muted}}
+.d-period{font-size:12px;color:${t.charcoal};background:${t.soft};padding:6px 12px;border-radius:20px;font-weight:600}
+.highlight{background:linear-gradient(135deg,${t.wine},${t.charcoal});color:#fff;border-radius:14px;padding:20px 22px;margin-bottom:20px}
+.hl-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.hl-tag{font-size:11px;text-transform:uppercase;letter-spacing:.8px;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:20px;font-weight:700}
+.hl-mes{font-size:22px;font-weight:800}
+.hl-status{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;margin-left:auto}
+.hl-status.pend{background:#ffe0dd;color:${t.wine}}.hl-status.pago{background:#dff0df;color:#1b5e20}
+.hl-status.semmov{background:#e8eefb;color:#2f4d80}
+.hl-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:18px}
+.hl-metric{background:rgba(255,255,255,.10);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;border:1px solid transparent}
+.hl-metric.bordado{border-color:#fff}
+.hl-metric.inverso{background:#fff;border-color:#fff}
+.hl-metric.inverso .hl-lbl{color:${t.charcoal};opacity:1}
+.hl-metric.inverso .hl-num{color:${t.wine}}
+.hl-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.5px;opacity:.85}
+.hl-num{font-size:20px;font-weight:800}.hl-num.accent{color:${t.gold}}
+.hl-seg-title{font-size:12px;text-transform:uppercase;letter-spacing:.6px;opacity:.85;margin-bottom:10px;font-weight:600}
+.hl-seg{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.seg-item{background:rgba(255,255,255,.12);border-left:3px solid ${t.gold};border-radius:8px;padding:10px 12px}
+.seg-anexo{font-size:12px;font-weight:600;opacity:.9;margin-bottom:4px}
+.seg-val{font-size:17px;font-weight:800}.seg-pct{font-size:11px;opacity:.8;margin-top:2px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:14px;margin-bottom:20px}
+.kpi{background:#fff;border:1px solid ${t.line};border-radius:12px;padding:16px 18px;border-top:3px solid ${t.wine}}
+.kpi.alt{border-top-color:${t.charcoal}}.kpi.gd{border-top-color:${t.gold}}
+.kpi .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:${t.muted};font-weight:600}
+.kpi .val{font-size:22px;font-weight:800;margin-top:6px}.kpi .foot{font-size:11px;color:${t.charcoal};margin-top:4px}
+.grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;margin-bottom:18px}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+.card{background:#fff;border:1px solid ${t.line};border-radius:12px;padding:18px;margin-bottom:18px}
+.card h3{font-size:14px;color:${t.wine};margin-bottom:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.card h3::before{content:'';width:4px;height:16px;background:${t.wine};border-radius:2px}
+.cbox{position:relative;height:280px}
+table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
+table.dt th{background:${t.charcoal};color:#fff;padding:9px 8px;text-align:right;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+table.dt th:first-child{text-align:left;border-radius:6px 0 0 0}table.dt th:last-child{border-radius:0 6px 0 0}
+table.dt td{padding:8px;text-align:right;border-bottom:1px solid ${t.line}}
+table.dt td:first-child{text-align:left;font-weight:600;color:${t.charcoal}}
+table.dt tbody tr:hover{background:${t.hover}}
+table.dt tfoot td{font-weight:800;background:${t.soft};color:${t.wine};border-top:2px solid ${t.wine}}
+.pill{font-size:11px;font-weight:700;color:${t.wine}}
+.insights{background:#fff;border:1px solid ${t.line};border-radius:12px;padding:18px;margin-bottom:8px}
+.insights h3{font-size:14px;color:${t.wine};margin-bottom:12px;font-weight:700}
+.ins-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.ins{border-left:3px solid ${t.gold};padding:4px 0 4px 12px;font-size:12.5px}.ins b{color:${t.wine}}
+.d-foot{text-align:center;font-size:11px;color:${t.muted};margin-top:14px;padding-bottom:6px}
+.card.sublim{border-left:5px solid ${t.charcoal}}
+.card.sublim.atencao{border-left-color:#c98a2e}
+.card.sublim.excedido{border-left-color:#b3261e}
+.sub-top{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px}
+.sub-box{display:flex;flex-direction:column;gap:3px}
+.sub-lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:${t.muted};font-weight:600}
+.sub-num{font-size:17px;font-weight:800;color:${t.ink}}
+.sub-num.destaque{color:${t.wine}} .sub-num.neg{color:#b3261e}
+.sub-bar{position:relative;height:12px;background:${t.soft};border-radius:7px;overflow:hidden;margin-bottom:10px}
+.sub-bar i{display:block;height:100%;background:${t.charcoal};border-radius:7px}
+.card.sublim.atencao .sub-bar i{background:#c98a2e}
+.card.sublim.excedido .sub-bar i{background:#b3261e}
+.sub-bar u{position:absolute;top:-2px;width:2px;height:16px;background:${t.ink};opacity:.35}
+.sub-msg{font-size:12.5px;color:${t.ink}}
+#dashPart2{padding-top:14px}
+@media(max-width:820px){.grid2,.split{grid-template-columns:1fr}}
+`;}
+const styleEl=document.createElement('style'); document.head.appendChild(styleEl);
+function applyTheme(){
+  const t=T(), r=document.documentElement.style;
+  r.setProperty('--wine',t.wine); r.setProperty('--wine-dark',t.wineDark);
+  r.setProperty('--charcoal',t.charcoal); r.setProperty('--gold',t.gold);
+  r.setProperty('--bg',t.bg); r.setProperty('--card',t.card); r.setProperty('--ink',t.ink);
+  r.setProperty('--muted',t.muted); r.setProperty('--line',t.line); r.setProperty('--paper',t.paper);
+  r.setProperty('--logo-bg',t.logoBg);
+  styleEl.textContent = dashCss();
+  const li=document.querySelector('img.logo'); if(li) li.src=LOGOS[BRAND];
+}
+
+/* ============================================================
+   EXPORTAÇÃO
+============================================================ */
+document.getElementById('dlHtml').onclick=()=>{
+  const root=document.getElementById('dashRoot').outerHTML;
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard ${EMPRESA.nome}</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"><\/script>
+<style>body{margin:0;background:${T().bg}}${dashCss()}</style></head><body>
+${root}
+<script>${rebuildChartsScript()}<\/script></body></html>`;
+  const blob=new Blob([html],{type:'text/html'});
+  triggerDownload(blob, `dashboard_${slug(EMPRESA.nome)}.html`);
+};
+
+function rebuildChartsScript(){
+  // reconstrói os dados atuais para o HTML exportado
+  const C=COMPETENCIAS;
+  const meses=C.map(c=>c.mes), fat=C.map(c=>+c.faturamento||0), das=C.map(c=>+c.das||0);
+  const carga=C.map((c,i)=>fat[i]?das[i]/fat[i]*100:0);
+  const tribTot={}; TRIBS.forEach(t=>tribTot[t]=C.reduce((s,c)=>s+(+c[t]||0),0));
+  const dasTot=das.reduce((a,b)=>a+b,0);
+  let pesos=TRIBS.filter(t=>tribTot[t]>0).map(t=>({label:TRIB_LABEL[t],valor:tribTot[t],
+    pctFat:dasTot?tribTot[t]/(fat.reduce((a,b)=>a+b,0))*100:0,cor:coresTrib()[t]})).sort((a,b)=>b.valor-a.valor);
+  const cmin=Math.max(0,Math.min(...carga)-0.3),cmax=Math.max(...carga)+0.3;
+  // composição do DAS do mês mais recente + série de faturamento 12m
+  const u=C[C.length-1]||{};
+  const pesosUlt=TRIBS.filter(t=>(+u[t]||0)>0).map(t=>({label:TRIB_LABEL[t],valor:+u[t]||0,cor:coresTrib()[t]}))
+    .sort((a,b)=>b.valor-a.valor);
+  const histMap={}; C.forEach(c=>{ if(c._hist) Object.assign(histMap,c._hist); });
+  C.forEach(c=>{ if(c._pa) histMap[c._pa]=+c.faturamento||0; });
+  const chaves=Object.keys(histMap).sort((a,b)=>{const[ma,ya]=a.split('/'),[mb,yb]=b.split('/');return (ya-yb)||(ma-mb);});
+  const fimIx=u._pa&&chaves.indexOf(u._pa)>=0?chaves.indexOf(u._pa):chaves.length-1;
+  const janela=chaves.slice(Math.max(0,fimIx-11),fimIx+1);
+  const histLabels=janela.map(k=>mesLabel(k)), histVals=janela.map(k=>histMap[k]);
+  const histSeg={}; SEG_CATS.forEach(k=>histSeg[k]=[]); let temSeg=false;
+  janela.forEach(k=>{
+    const comp=C.find(x=>x._pa===k && x._seg && x._seg.length);
+    if(comp){ temSeg=true; const mp={}; SEG_CATS.forEach(s=>mp[s]=0);
+      comp._seg.forEach(x=>{ if(mp[x.anexo]!==undefined) mp[x.anexo]+=x.receita; });
+      SEG_CATS.forEach(s=>histSeg[s].push(mp[s]));
+    } else SEG_CATS.forEach(s=>histSeg[s].push(null));
+  });
+  const tt=T();
+  const coresSeg={'Tributado':tt.wine,'Tributado/Monofásico':tt.trib.csll,'Com ST':tt.charcoal,'Com ST/Monofásico':tt.gold};
+  const D={meses,fat,das,carga,pesos,pesosUlt,dasTot,cmin,cmax,histLabels,histVals,
+           histSeg,temSeg,segCats:SEG_CATS,coresSeg};
+  return `const D=${JSON.stringify(D)};const brl=v=>v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const W='${T().wine}',G='${T().gold}';const o={responsive:true,maintainAspectRatio:false};
+new Chart(chBar,{type:'bar',data:{labels:D.meses,datasets:[{label:'Faturamento',data:D.fat,backgroundColor:W,borderRadius:4,yAxisID:'y'},{label:'DAS',data:D.das,backgroundColor:G,borderRadius:4,yAxisID:'y1'}]},options:{...o,plugins:{legend:{position:'bottom'}},scales:{y:{ticks:{callback:v=>'R$'+(v/1000)+'k'}},y1:{position:'right',grid:{drawOnChartArea:false},ticks:{callback:v=>'R$'+(v/1000)+'k'}}}}});
+new Chart(chPie,{type:'doughnut',data:{labels:(D.pesosUlt.length?D.pesosUlt:D.pesos).map(p=>p.label),datasets:[{data:(D.pesosUlt.length?D.pesosUlt:D.pesos).map(p=>p.valor),backgroundColor:(D.pesosUlt.length?D.pesosUlt:D.pesos).map(p=>p.cor),borderWidth:2,borderColor:'#fff'}]},options:{...o,cutout:'55%',plugins:{legend:{position:'right'},tooltip:{callbacks:{label:c=>c.label+': R$ '+brl(c.parsed)}}}}});
+const mx=Math.max(...D.histVals.filter(v=>v!=null),0)*1.1||1;const dsS=D.temSeg?D.segCats.map(k=>({type:'bar',label:k,data:D.histSeg[k],backgroundColor:D.coresSeg[k],stack:'seg',borderWidth:0,order:2})):[];new Chart(chLine,{data:{labels:D.histLabels,datasets:[...dsS,{type:'line',label:'Faturamento total',data:D.histVals,borderColor:W,backgroundColor:W+'14',fill:!D.temSeg,tension:.35,pointRadius:3,pointBackgroundColor:W,yAxisID:'yT',order:1}]},options:{...o,plugins:{legend:{display:D.temSeg,position:'bottom',labels:{font:{size:10},boxWidth:12,padding:8}},tooltip:{callbacks:{label:c=>c.dataset.label+': R$ '+brl(c.parsed.y)}}},scales:{y:{stacked:true,beginAtZero:true,max:mx,ticks:{callback:v=>'R$'+(v/1000).toFixed(0)+'k'}},yT:{display:false,beginAtZero:true,max:mx},x:{stacked:true,ticks:{font:{size:9}}}}}});
+new Chart(chTrib,{type:'bar',data:{labels:D.pesos.map(p=>p.label),datasets:[{data:D.pesos.map(p=>+p.pctFat.toFixed(2)),backgroundColor:D.pesos.map(p=>p.cor),borderRadius:4}]},options:{...o,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>v.toFixed(1).replace('.',',')+'%'}}}}});`;
+}
+
+/* Gera o PDF em blocos: cada bloco começa numa página nova.
+   Assim a quebra cai exatamente acima do "Detalhamento mensal". */
+async function addBlocoPdf(pdf, el, primeiro){
+  const canvas = await html2canvas(el, {scale:2, backgroundColor:T().bg, useCORS:true, windowWidth:1160});
+  const pw=210, ph=297, marg=4;          // margem vertical de segurança
+  const dispH = ph - marg*2;             // altura útil da página
+  const img = canvas.toDataURL('image/jpeg',0.92);
+  let imgW = pw, imgH = canvas.height*pw/canvas.width;
+  if(!primeiro) pdf.addPage();
+
+  if(imgH <= dispH){                     // cabe inteiro
+    pdf.addImage(img,'JPEG',0,marg,imgW,imgH);
+    return;
+  }
+  const fator = dispH/imgH;
+  if(fator >= 0.55){                     // excesso pequeno: encolhe p/ caber numa página
+    imgW = pw*fator; imgH = dispH;
+    pdf.addImage(img,'JPEG',(pw-imgW)/2,marg,imgW,imgH);
+    return;
+  }
+  // bloco muito alto: fatia em páginas
+  pdf.addImage(img,'JPEG',0,0,imgW,imgH);
+  let left = imgH - ph;
+  while(left > 0){
+    pdf.addPage();
+    pdf.addImage(img,'JPEG',0,-(imgH-left),imgW,imgH);
+    left -= ph;
+  }
+}
+
+document.getElementById('dlPdf').onclick=async()=>{
+  const lbl=document.getElementById('pdfLbl'); lbl.classList.add('show'); lbl.textContent='Renderizando PDF…';
+  try{
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF('p','mm','a4');
+    const p1=document.getElementById('dashPart1');
+    const p2=document.getElementById('dashPart2');
+    if(p1 && p2){
+      await addBlocoPdf(pdf, p1, true);
+      await addBlocoPdf(pdf, p2, false);
+    } else {
+      await addBlocoPdf(pdf, document.getElementById('dashRoot'), true);
+    }
+    pdf.save(`dashboard_${slug(EMPRESA.nome)}.pdf`);
+    lbl.textContent='PDF gerado.';
+  }catch(e){ console.error(e); lbl.textContent='Falha ao gerar PDF. Tente "Baixar HTML" e imprima como PDF.'; }
+};
+
+function slug(s){ return (s||'empresa').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  .replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,''); }
+function triggerDownload(blob,name){
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+/* init do tema — após todas as declarações */
+setBrand('lj');
+</script>
+</body>
+</html>
