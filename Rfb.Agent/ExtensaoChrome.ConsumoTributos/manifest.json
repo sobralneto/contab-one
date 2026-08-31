@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Trocador de Representação - Tributos Consumo",
+  "version": "1.0.0",
+  "description": "Automatiza a troca de representação (ex.: Procurador) no portal consumo.tributos.gov.br para uma lista de CNPJs. Pausa automaticamente quando aparece um CAPTCHA para resolução manual.",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["https://consumo.tributos.gov.br/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Trocar Representação"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://consumo.tributos.gov.br/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8" />
+<title>Trocar Representação</title>
+<style>
+  body {
+    width: 260px;
+    font-family: system-ui, Segoe UI, Arial, sans-serif;
+    font-size: 13px;
+    padding: 12px;
+    color: #1a1a1a;
+  }
+  h1 { font-size: 14px; margin: 0 0 8px; }
+  p { color: #444; line-height: 1.4; }
+  button {
+    width: 100%;
+    padding: 8px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #status { margin-top: 8px; font-size: 12px; color: #666; }
+</style>
+</head>
+<body>
+  <h1>Trocar Representação</h1>
+  <p>O painel de automação roda direto na página do portal (não aqui no popup), para não fechar quando você precisar resolver um CAPTCHA.</p>
+  <button id="toggle">Abrir painel na página</button>
+  <div id="status"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

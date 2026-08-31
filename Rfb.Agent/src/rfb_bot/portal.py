@@ -20,6 +20,7 @@ from urllib.parse import urljoin, urlparse
 from playwright.sync_api import Error as ErroPlaywright, Locator, Page, Response
 
 from .erros import (
+    ErroCnpjInvalido,
     ErroRepresentacao,
     ErroRepresentacaoDivergente,
     ErroSemProcuracao,
@@ -44,14 +45,23 @@ FRAGMENTO_MUDANCA_PAPEL = "MudancaPapel"
 CAMINHO_DADOS_USUARIO = "/login/api/Usuario/dadosUsuario"
 
 # Trechos que identificam a recusa por falta de procuração -- condição de
-# negócio, não falha do robô. Comparados sobre o texto normalizado.
+# negócio, não falha do robô. Comparados sobre o texto normalizado (sem
+# acento). O primeiro item é o texto EXATO confirmado contra o portal real
+# em 2026-08-29 (representando um CNPJ com procuração revogada); os
+# demais são reserva para variações de redação que o portal talvez use em
+# outras negativas do mesmo tipo (procuração vencida vs. nunca outorgada).
 _MARCAS_SEM_PROCURACAO = (
+    "autorizacao como procurador nao permite acesso",
     "procuracao",
     "nao possui permissao",
     "sem permissao",
     "nao autorizado",
     "nao ha vinculo",
 )
+# Confirmado contra o portal real: CNPJ com dígito verificador inválido (ou
+# inexistente) recusa a representação com esta mensagem -- condição de
+# DADO (linha ruim na planilha), não de acesso. Ver ErroCnpjInvalido.
+_MARCAS_CNPJ_INVALIDO = ("cnpj invalido", "documento invalido", "ni invalido")
 _MARCAS_CAPTCHA = ("captcha", "token invalido", "token expirado")
 
 
@@ -327,6 +337,8 @@ def _avaliar_resposta(resposta: Response | None, log: logging.Logger) -> None:
 
     if any(marca in normalizado for marca in _MARCAS_SEM_PROCURACAO):
         raise ErroSemProcuracao(mensagem)
+    if any(marca in normalizado for marca in _MARCAS_CNPJ_INVALIDO):
+        raise ErroCnpjInvalido(mensagem)
     if any(marca in normalizado for marca in _MARCAS_CAPTCHA):
         raise ErroRepresentacao(
             "Clicar em Representar",
@@ -344,15 +356,28 @@ def _texto_seguro(resposta: Response) -> str:
         return ""
 
 
+_CHAVES_MENSAGEM = ("mensagem", "message", "detail", "title", "titulo", "erro", "error",
+                    "descricao", "description")
+
+
 def _mensagem_do_corpo(corpo: str) -> str:
-    """Extrai a mensagem de erro do JSON de resposta, com fallback no texto cru."""
+    """Extrai a mensagem de erro do JSON de resposta, com fallback no texto cru.
+
+    A comparação de chave é case-insensitive: o endpoint de troca de papel
+    devolve ``{"Sessao": null, "Erro": "..."}`` (confirmado contra o portal
+    real), com maiúscula -- diferente do padrão ``{"codigo", "descricao"}``
+    em minúsculas usado pela API de credenciais. Comparar só em minúsculas
+    faria a extração falhar bem no formato mais comum de erro do portal, e o
+    CSV acabaria com o JSON inteiro na coluna de observação em vez da frase.
+    """
     try:
         dados = json.loads(corpo)
     except (json.JSONDecodeError, TypeError):
         return re.sub(r"\s+", " ", corpo).strip()[:300]
     if isinstance(dados, dict):
-        for chave in ("mensagem", "message", "detail", "title", "erro", "error"):
-            valor = dados.get(chave)
+        por_chave_minuscula = {str(k).lower(): v for k, v in dados.items()}
+        for chave in _CHAVES_MENSAGEM:
+            valor = por_chave_minuscula.get(chave)
             if isinstance(valor, str) and valor.strip():
                 return valor.strip()
     return re.sub(r"\s+", " ", corpo).strip()[:300]

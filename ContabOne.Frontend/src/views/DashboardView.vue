@@ -81,7 +81,7 @@
         <div class="filtro-group" v-if="auth.isPlatformAdmin">
           <label>Escritório</label>
           <select v-model="filtroEscritorioId" class="filtro-select">
-            <option :value="null">Todos os escritórios</option>
+            <option :value="null">Selecione um escritório</option>
             <option v-for="e in escritorios" :key="e.id" :value="e.id">
               {{ e.nome }}
             </option>
@@ -209,6 +209,12 @@ async function carregarAlertas() {
 }
 
 async function carregarSeries() {
+  // Admin precisa escolher um escritório antes do gráfico carregar — "Selecione
+  // um escritório" não é um filtro "todos", é a ausência de seleção.
+  if (auth.isPlatformAdmin && !filtroEscritorioId.value) {
+    series.value = []
+    return
+  }
   try {
     series.value = await fetchSeries({
       de: filtroDe.value || undefined,

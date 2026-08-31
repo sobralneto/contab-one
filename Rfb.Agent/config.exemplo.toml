@@ -26,6 +26,12 @@ modo_certificado = "playwright_pfx"
 # Sem esta linha, o robo procura o unico *.pfx dentro de certificado/.
 # certificado_pfx = "certificado/escritorio.pfx"
 
+# Origem da lista de clientes:
+#   toml  -> os blocos [[clientes]] abaixo (padrao; pratico para poucos casos)
+#   excel -> planilha com coluna A = CNPJ, coluna B = Nome
+fonte_clientes = "toml"
+# clientes_arquivo = "empresas.xlsx"  # usado so quando fonte_clientes = "excel"
+
 # Pausa entre clientes, em segundos. Aumente se o portal comecar a responder
 # 429 no meio do lote.
 pausa_entre_clientes_s = 2.0

@@ -26,6 +26,12 @@ MODO_MANUAL = "manual"       # operador escolhe o certificado no diálogo do Chr
 MODO_PFX = "playwright_pfx"  # Playwright injeta o .pfx na camada TLS
 MODOS_CERTIFICADO = (MODO_MANUAL, MODO_PFX)
 
+# Origem da lista de clientes: os blocos [[clientes]] do próprio config.toml
+# (prático para poucos casos) ou uma planilha Excel (ver rfb_bot.fontes).
+FONTE_TOML = "toml"
+FONTE_EXCEL = "excel"
+FONTES_CLIENTES = (FONTE_TOML, FONTE_EXCEL)
+
 URL_PORTAL_PADRAO = "https://consumo.tributos.gov.br/"
 BASE_CREDENCIAL_PADRAO = "https://consumo.tributos.gov.br/servico/credencial-api-beta"
 # Rota da SPA aberta após a troca de representação. O POST de criação é
@@ -204,6 +210,14 @@ class Config:
     tentativas_api: int = 3
     espera_rate_limit_s: float = 15.0
 
+    # ------------------------------------------------------------------ #
+    # Origem da lista de clientes
+    # ------------------------------------------------------------------ #
+    fonte_clientes: str = FONTE_TOML
+    # Coluna A = CNPJ, coluna B = Nome (vira `nome_credencial`). Caminho
+    # relativo resolve a partir de `raiz`.
+    clientes_arquivo: str | None = "empresas.xlsx"
+
     seletores: dict[str, list[str]] = field(default_factory=dict)
     clientes: list[Cliente] = field(default_factory=list)
 
@@ -247,6 +261,8 @@ class Config:
             "modo_certificado",
             "certificado_pfx",
             "certificado_senha_env",
+            "fonte_clientes",
+            "clientes_arquivo",
             "saida_csv",
             "canal_navegador",
             "headless",
@@ -342,6 +358,20 @@ class Config:
             )
         return candidatos[0]
 
+    def caminho_clientes_arquivo(self) -> Path:
+        """Resolve o caminho da planilha de clientes, aceitando caminho relativo à raiz."""
+        if not self.clientes_arquivo:
+            raise ErroRobo(
+                "fonte_clientes='excel' exige 'clientes_arquivo' no config.toml "
+                "(ou --clientes-arquivo na linha de comando)."
+            )
+        caminho = Path(self.clientes_arquivo)
+        if not caminho.is_absolute():
+            caminho = (self.raiz / caminho).resolve()
+        if not caminho.is_file():
+            raise ErroRobo(f"Planilha de clientes nao encontrada em: {caminho}")
+        return caminho
+
     # ------------------------------------------------------------------ #
     # URLs derivadas
     # ------------------------------------------------------------------ #
@@ -391,11 +421,20 @@ class Config:
             raise ErroRobo(
                 f"tentativas_api deve ser >= 1, veio {self.tentativas_api!r}."
             )
-        if not self.clientes:
+        if self.fonte_clientes not in FONTES_CLIENTES:
             raise ErroRobo(
-                "Nenhum cliente no config.toml. Adicione ao menos um bloco "
-                "[[clientes]] com 'cnpj' e 'nome_credencial'."
+                f"fonte_clientes invalida: '{self.fonte_clientes}'. "
+                f"Use um de {FONTES_CLIENTES}."
             )
+        if not self.clientes:
+            dica = (
+                f"Confira a planilha '{self.clientes_arquivo}' (coluna A = "
+                "CNPJ, coluna B = Nome)."
+                if self.fonte_clientes == FONTE_EXCEL
+                else "Adicione ao menos um bloco [[clientes]] com 'cnpj' e "
+                "'nome_credencial' no config.toml."
+            )
+            raise ErroRobo(f"Nenhum cliente a processar. {dica}")
 
         vistos: dict[str, str] = {}
         for cliente in self.clientes:
@@ -406,7 +445,7 @@ class Config:
                 )
             if digitos in vistos:
                 raise ErroRobo(
-                    f"CNPJ repetido no config.toml: {cliente.cnpj_formatado} "
+                    f"CNPJ repetido na lista de clientes: {cliente.cnpj_formatado} "
                     f"('{vistos[digitos]}' e '{cliente.nome_credencial}')"
                 )
             vistos[digitos] = cliente.nome_credencial

@@ -46,10 +46,33 @@ python -m playwright install chrome
 
 Depois:
 
-1. `cp config.exemplo.toml config.toml` e preencha os clientes.
-2. `cp .env.example .env` e preencha `RFB_PFX_SENHA`.
+1. `cp config.exemplo.toml config.toml` e preencha os clientes -- direto em
+   `[[clientes]]`, ou apontando `fonte_clientes = "excel"` para uma planilha
+   (ver seção seguinte).
+2. `cp .env.example .env` e preencha `RFB_PFX_SENHA` (só no modo `playwright_pfx`;
+   no modo `manual` o certificado escolhido pelo Chrome no repositório do
+   Windows não precisa de senha aqui).
 3. Coloque o `.pfx` do escritório em `certificado/` (o robô acha o arquivo
-   sozinho, desde que seja o único `.pfx` da pasta).
+   sozinho, desde que seja o único `.pfx` da pasta) -- só no modo `playwright_pfx`.
+
+### Lista de clientes em planilha
+
+```toml
+fonte_clientes = "excel"
+clientes_arquivo = "empresas.xlsx"   # coluna A = CNPJ, coluna B = Nome
+```
+
+Mesma convenção do Det.Agent: primeira linha pode ser cabeçalho (detectado
+automaticamente quando a coluna A não tem dígito), linhas com CNPJ vazio são
+ignoradas, e CNPJ salvo como número no Excel (perde zeros à esquerda) é
+recomposto. Sobrescreva pontualmente sem editar o TOML com:
+
+```bash
+python run.py --clientes-arquivo outra_lista.xlsx
+```
+
+Com `fonte_clientes = "excel"`, os blocos `[[clientes]]` do TOML (se houver)
+são ignorados, com aviso no log.
 
 ---
 
@@ -100,6 +123,7 @@ python run.py --cliente 07467651000135
 | --- | --- |
 | `-c, --config` | Caminho do TOML (padrão `config.toml`) |
 | `--cliente CNPJ` | Processa só este CNPJ (repetível) |
+| `--clientes-arquivo XLSX` | Usa esta planilha em vez da fonte do TOML |
 | `-o, --saida CSV` | Sobrescreve o caminho do CSV |
 | `--modo-certificado` | `playwright_pfx` (padrão) ou `manual` |
 | `--headless` | Sem interface. Incompatível com `manual` |
@@ -198,6 +222,15 @@ Numa v2 isso vira um cofre (Vault / Key Vault / SOPS). Só `saida.py` muda.
 resumo do log para o contador agir, mas não dispara alerta de robô
 quebrado.
 
+Em qualquer status que não seja sucesso -- `sem_procuracao` ou `erro` --, o
+robô **grava a linha no CSV e segue para o próximo cliente**; um cliente
+nunca interrompe o lote. Se a mensagem exata do portal para "sem
+procuração" ainda não bateu com o texto esperado em `portal.py`
+(`_MARCAS_SEM_PROCURACAO`), o caso aparece como `erro` em vez de
+`sem_procuracao` -- a linha do CSV continua com a mensagem completa do
+portal, só a categoria fica genérica até o texto real ser incorporado à
+detecção (mesmo ajuste que já foi feito para o 422/INT0016 da consulta).
+
 ---
 
 ## Rate limiting
@@ -246,12 +279,14 @@ Rfb.Agent/
 ├── run.py                    # entry point
 ├── config.exemplo.toml       # copie para config.toml
 ├── .env.example              # copie para .env (RFB_PFX_SENHA)
+├── empresas.xlsx             # lista de clientes, se fonte_clientes="excel" (gitignored)
 ├── certificado/              # o .pfx do escritório (gitignored)
 ├── perfil/                   # perfil persistente do Chrome (gitignored)
 ├── resultado/                # CSV com os segredos (gitignored)
 ├── debug/                    # screenshots + HTML de falha (gitignored)
 └── src/rfb_bot/
     ├── settings.py           # config.toml, CNPJ, validação
+    ├── fontes.py             # lista de clientes: [[clientes]] ou planilha
     ├── navegador.py          # Chrome + certificado A1 + perfil persistente
     ├── seletores.py          # catálogo de seletores tolerantes
     ├── localizadores.py      # "primeiro candidato que funcionar"

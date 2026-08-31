@@ -19,7 +19,8 @@ from playwright.sync_api import BrowserContext, Error as ErroPlaywright, Page, s
 
 from . import __version__
 from .credenciais import Sessao, consultar, criar
-from .erros import ErroEtapa, ErroRobo, ErroSemProcuracao, ErroSessao
+from .erros import ErroCnpjInvalido, ErroEtapa, ErroRobo, ErroSemProcuracao, ErroSessao
+from .fontes import carregar_clientes
 from .localizadores import clicar_se_existir
 from .log import AVISO, FALHA, SUCESSO, configurar_logging, obter_logger, salvar_evidencia
 from .navegador import (
@@ -31,6 +32,7 @@ from .navegador import (
 )
 from .portal import garantir_sessao, representar
 from .saida import (
+    STATUS_CNPJ_INVALIDO,
     STATUS_CRIADA,
     STATUS_ERRO,
     STATUS_JA_POSSUIA,
@@ -39,7 +41,7 @@ from .saida import (
     preparar_csv,
     registrar,
 )
-from .settings import MODOS_CERTIFICADO, RAIZ_PADRAO, Cliente, Config
+from .settings import FONTE_EXCEL, MODOS_CERTIFICADO, RAIZ_PADRAO, Cliente, Config
 
 # Códigos de saída para o agendador.
 SAIDA_OK = 0
@@ -64,6 +66,13 @@ def montar_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--cliente", action="append", metavar="CNPJ",
         help="Processa apenas este CNPJ (repetível).",
+    )
+    parser.add_argument(
+        "--clientes-arquivo", metavar="XLSX",
+        help=(
+            "Le a lista de clientes desta planilha (coluna A=CNPJ, B=Nome) "
+            "em vez da fonte configurada em --config."
+        ),
     )
     parser.add_argument(
         "-o", "--saida", metavar="CSV",
@@ -212,6 +221,23 @@ def processar_cliente(
             status=STATUS_SEM_PROCURACAO,
             observacao=exc.mensagem_portal,
         )
+    except ErroCnpjInvalido as exc:
+        # Também condição de dado, não falha do robô: a linha da planilha
+        # tem um CNPJ que o próprio portal rejeita (dígito verificador
+        # errado ou inexistente). Status próprio para não misturar com
+        # "sem procuracao" -- o contador precisa corrigir a planilha, não
+        # renovar procuração nenhuma.
+        resultado["status"] = STATUS_CNPJ_INVALIDO
+        resultado["detalhe"] = exc.mensagem_portal
+        log.warning("%s CNPJ invalido para %s: %s",
+                    AVISO, cliente.cnpj_formatado, exc.mensagem_portal)
+        registrar(
+            cfg.caminho_csv, log,
+            cnpj=cliente.cnpj_formatado,
+            nome_credencial=cliente.nome_credencial,
+            status=STATUS_CNPJ_INVALIDO,
+            observacao=exc.mensagem_portal,
+        )
     except ErroEtapa as exc:
         resultado["detalhe"] = f"{exc.etapa}: {exc.detalhe}"
         log.error("%s Cliente %s interrompido na etapa '%s': %s",
@@ -226,7 +252,8 @@ def processar_cliente(
         log.exception("%s Erro inesperado no cliente %s.", FALHA, cliente.cnpj_formatado)
         _registrar_falha(cfg, log, cliente, resultado["detalhe"])
     finally:
-        if resultado["status"] in (STATUS_ERRO, STATUS_SEM_PROCURACAO) and not page.is_closed():
+        if (resultado["status"] in (STATUS_ERRO, STATUS_SEM_PROCURACAO, STATUS_CNPJ_INVALIDO)
+                and not page.is_closed()):
             salvar_evidencia(
                 page, cfg.dir_debug, resultado["status"],
                 prefixo=cliente.cnpj_digitos,
@@ -306,6 +333,12 @@ def executar(args: argparse.Namespace) -> int:
     )
     try:
         cfg = Config.carregar(args.config)
+        if args.clientes_arquivo:
+            # O arquivo recebido muda a cada execucao: sobrepoe a fonte do
+            # TOML em vez de exigir editar 'fonte_clientes' toda vez.
+            cfg.fonte_clientes = FONTE_EXCEL
+            cfg.clientes_arquivo = args.clientes_arquivo
+        cfg.clientes = carregar_clientes(cfg, log)
         aplicar_argumentos(cfg, args)
         clientes = cfg.clientes_ativos(args.cliente)
     except ErroRobo as exc:
@@ -356,17 +389,20 @@ def _resumir(resultados: list[dict[str, Any]], cfg: Config, log: logging.Logger)
     ja_possuiam = [r for r in resultados if r["status"] == STATUS_JA_POSSUIA]
     simuladas = [r for r in resultados if r["status"] == STATUS_SIMULADO]
     sem_procuracao = [r for r in resultados if r["status"] == STATUS_SEM_PROCURACAO]
+    cnpj_invalido = [r for r in resultados if r["status"] == STATUS_CNPJ_INVALIDO]
     falhas = [r for r in resultados if r["status"] == STATUS_ERRO]
 
     log.info("=" * 66)
     log.info(
         "Resumo: %d criada(s) | %d ja possuia(m) | %d simulada(s) | "
-        "%d sem procuracao | %d com erro",
+        "%d sem procuracao | %d cnpj invalido | %d com erro",
         len(criadas), len(ja_possuiam), len(simuladas),
-        len(sem_procuracao), len(falhas),
+        len(sem_procuracao), len(cnpj_invalido), len(falhas),
     )
     for item in sem_procuracao:
         log.warning("%s %s -> sem procuracao: %s", AVISO, item["cnpj"], item["detalhe"])
+    for item in cnpj_invalido:
+        log.warning("%s %s -> cnpj invalido: %s", AVISO, item["cnpj"], item["detalhe"])
     for item in falhas:
         log.error("%s %s -> %s", FALHA, item["cnpj"], item["detalhe"])
 
@@ -375,7 +411,7 @@ def _resumir(resultados: list[dict[str, Any]], cfg: Config, log: logging.Logger)
 
     if not falhas:
         return SAIDA_OK
-    produtivo = criadas or ja_possuiam or simuladas or sem_procuracao
+    produtivo = criadas or ja_possuiam or simuladas or sem_procuracao or cnpj_invalido
     return SAIDA_PARCIAL if produtivo else SAIDA_TOTAL
 
 

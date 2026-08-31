@@ -40,6 +40,7 @@ COLUNAS = (
 STATUS_CRIADA = "criada"
 STATUS_JA_POSSUIA = "ja_possuia"
 STATUS_SEM_PROCURACAO = "sem_procuracao"
+STATUS_CNPJ_INVALIDO = "cnpj_invalido"
 STATUS_ERRO = "erro"
 STATUS_SIMULADO = "simulado"
 
