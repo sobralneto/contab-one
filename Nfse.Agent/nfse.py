@@ -173,12 +173,10 @@ CONFIG_PADRAO = {
     # via config.toml ou pela tela de configuração do SaaS (handshake, ver
     # aplicar_configuracao_remota).
     "dias_busca_padrao": MAX_DIAS_FILTRO,
-    # Seção opcional — ausente/incompleta = modo legado (roda exatamente como
-    # antes desta ferramenta virar um agente, zero chamada de rede além do
-    # portal). Ver carregar_config().
+    # Obrigatória — 'url' e 'chave' precisam vir preenchidos no config.toml.
+    # Ver carregar_config().
     "api": {},
 }
-TOLERANCIA_OFFLINE_PADRAO = 7
 
 
 def preparar_console() -> None:
@@ -301,26 +299,13 @@ def carregar_config(caminho: Path) -> dict:
     if config["dias_busca_padrao"] <= 0:
         erro_fatal(f"'dias_busca_padrao' no {caminho.name} precisa ser maior que zero.")
 
-    # [api] ausente ou com 'url'/'chave' vazios = modo legado (roda igual a
-    # antes desta ferramenta virar um agente, nenhuma chamada de rede além
-    # do portal). Só liga o modo agente quando os dois estão preenchidos —
-    # um [api] pela metade nunca deve disparar handshake silenciosamente.
+    # [api] é obrigatório: 'url' e 'chave' precisam estar os dois preenchidos,
+    # senão a ferramenta recusa rodar.
     api_cfg = dict(config.get("api") or {})
     tem_url, tem_chave = bool(api_cfg.get("url")), bool(api_cfg.get("chave"))
-    if tem_url or tem_chave:
-        if not (tem_url and tem_chave):
-            erro_fatal(f"[api] no {caminho.name} está incompleto: preencha 'url' e 'chave' "
-                       f"os dois, ou nenhum (para rodar em modo legado, sem SaaS).")
-        try:
-            api_cfg["tolerancia_offline_dias"] = int(
-                api_cfg.get("tolerancia_offline_dias", TOLERANCIA_OFFLINE_PADRAO))
-        except (TypeError, ValueError):
-            erro_fatal(f"Valor inválido em 'api.tolerancia_offline_dias' no {caminho.name}: "
-                       f"{api_cfg.get('tolerancia_offline_dias')!r}. Use um número inteiro de dias.")
-        if api_cfg["tolerancia_offline_dias"] <= 0:
-            erro_fatal(f"'api.tolerancia_offline_dias' no {caminho.name} precisa ser maior que zero.")
-    else:
-        api_cfg = {}
+    if not (tem_url and tem_chave):
+        erro_fatal(f"[api] no {caminho.name} está incompleto ou ausente: preencha 'url' e 'chave' "
+                   f"os dois — são obrigatórios.")
     config["api"] = api_cfg
 
     return config
@@ -1182,26 +1167,19 @@ def main() -> int:
 
     # ---- agente SaaS: identidade e licenciamento ---------------------------
     # Roda antes de qualquer certificado ser tocado (PLANO_SAAS_AGENTE.md
-    # §3.2). config["api"] só é truthy quando 'url' e 'chave' estão os dois
-    # preenchidos (ver carregar_config) — sem [api] no config.toml, nada
-    # nesta seção roda: é o modo legado (§9), idêntico ao comportamento de
-    # antes desta ferramenta virar um agente, zero chamada de rede além do
-    # próprio portal.
-    api_cliente: api_client.ApiClient | None = None
-    decisao: api_client.DecisaoLicenca | None = None
-    if config["api"]:
-        api_cliente = api_client.ApiClient(base_url=config["api"]["url"], chave=config["api"]["chave"])
-        cache_licenca = RAIZ / api_client.NOME_CACHE_LICENCA
-        cache_regras = RAIZ / regras.NOME_CACHE
+    # §3.2). [api] é obrigatório (ver carregar_config) — config["api"] sempre
+    # vem com 'url' e 'chave' preenchidos aqui.
+    api_cliente = api_client.ApiClient(base_url=config["api"]["url"], chave=config["api"]["chave"])
+    cache_licenca = RAIZ / api_client.NOME_CACHE_LICENCA
+    cache_regras = RAIZ / regras.NOME_CACHE
 
-        decisao = api_client.avaliar_licenca(
-            api_cliente, regras.versao_em_cache(cache_regras), cache_licenca,
-            config["api"]["tolerancia_offline_dias"], log=log,
-        )
-        if not decisao.pode_executar:
-            erro_fatal(decisao.mensagem or "Execução não autorizada pelo servidor.", codigo=3)
-        if decisao.modo == "offline":
-            log(f"  AVISO: {decisao.mensagem}")
+    decisao = api_client.avaliar_licenca(
+        api_cliente, regras.versao_em_cache(cache_regras), cache_licenca, log=log,
+    )
+    if not decisao.pode_executar:
+        erro_fatal(decisao.mensagem or "Execução não autorizada pelo servidor.", codigo=3)
+    if decisao.modo == "offline":
+        log(f"  AVISO: {decisao.mensagem}")
         if decisao.agente_versao_minima and api_client.versao_desatualizada(
                 api_client.VERSAO_AGENTE, decisao.agente_versao_minima):
             # Avisa e segue — bloquear por versão travaria o cliente exatamente

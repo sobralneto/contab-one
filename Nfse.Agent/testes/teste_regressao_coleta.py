@@ -195,12 +195,15 @@ def teste_controle_grava_atomico(s: Suite, tmp: Path) -> None:
     s.check((pasta / "_controle.json").exists(), "_controle.json existe depois de salvar")
 
 
-# ---- config.toml: [api] ausente = modo legado ------------------------------
-def teste_config_sem_api_e_modo_legado(s: Suite, tmp: Path) -> None:
+# ---- config.toml: [api] é obrigatório --------------------------------------
+def teste_config_sem_api_e_erro(s: Suite, tmp: Path) -> None:
     caminho = tmp / "config.toml"
     caminho.write_text('pasta_saida = "notas"\n', encoding="utf-8")
-    config = nfse.carregar_config(caminho)
-    s.check(config["api"] == {}, "sem [api] no config.toml: config['api'] é {} (modo legado)")
+    try:
+        nfse.carregar_config(caminho)
+        s.check(False, "config.toml sem [api] deveria dar erro_fatal")
+    except SystemExit as e:
+        s.check(e.code == 1, "sem [api]: erro_fatal com código 1 (erro de configuração comum)")
 
 
 def teste_config_api_incompleto_e_erro(s: Suite, tmp: Path) -> None:
@@ -221,8 +224,8 @@ def teste_config_api_completo_liga_modo_agente(s: Suite, tmp: Path) -> None:
     )
     config = nfse.carregar_config(caminho)
     s.check(bool(config["api"]), "[api] completo: config['api'] é truthy (liga o modo agente)")
-    s.check(config["api"]["tolerancia_offline_dias"] == nfse.TOLERANCIA_OFFLINE_PADRAO,
-           "tolerancia_offline_dias usa o padrão (7) quando não especificado")
+    s.check("tolerancia_offline_dias" not in config["api"],
+           "tolerancia_offline_dias não é mais lido do config.toml — valor fixo no código")
 
 
 def main() -> Suite:

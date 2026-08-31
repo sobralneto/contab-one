@@ -113,21 +113,19 @@ def teste_chave_revogada_sai_codigo_3(s: Suite, tmp: Path) -> None:
     s.check(r.returncode == 3, f"chave inválida: sai com código 3 (veio {r.returncode})")
 
 
-def teste_modo_legado_sem_api_nao_bate_na_rede(s: Suite, tmp: Path) -> None:
-    """Sem [api] no config.toml, o processo nem tenta abrir uma conexão —
-    aqui isso é verificado apontando pra uma porta fechada teoricamente
-    alcançável (só que nunca é: sem [api], o código que chamaria essa URL
-    nem existe no caminho de execução) e confirmando que o processo segue
-    até o erro ESPERADO (pasta de certificados vazia), não um erro de rede."""
-    pasta = _agente_isolado(tmp / "legado").parent
-    (pasta / "certificados").mkdir()  # existe, mas vazia
+def teste_sem_api_recusa_rodar(s: Suite, tmp: Path) -> None:
+    """[api] é obrigatório: sem 'url'/'chave' preenchidos no config.toml, o
+    processo recusa rodar (erro_fatal, código 1) antes de tocar em qualquer
+    certificado — nunca tenta seguir em modo legado."""
+    pasta = _agente_isolado(tmp / "sem-api").parent
+    (pasta / "certificados").mkdir()
     (pasta / "config.toml").write_text(
         'pasta_certificados = "certificados"\npasta_saida = "notas"\n', encoding="utf-8",
     )
     r = _rodar(pasta / "nfse.py", "--sem-pausa")
-    s.check(r.returncode == 1, f"modo legado, pasta de certificados vazia: erro de configuração comum, código 1 (veio {r.returncode})")
-    s.check("certificado" in (r.stdout + r.stderr).lower(),
-           "a mensagem de erro é sobre a pasta de certificados vazia, não sobre API/rede")
+    s.check(r.returncode == 1, f"sem [api]: erro de configuração comum, código 1 (veio {r.returncode})")
+    s.check("api" in (r.stdout + r.stderr).lower(),
+           "a mensagem de erro é sobre a seção [api] ausente/incompleta")
 
 
 def main() -> Suite:

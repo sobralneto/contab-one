@@ -23,16 +23,8 @@ senha_padrao = "TROQUE-PELA-SENHA-DOS-CERTIFICADOS"
 # [senhas]
 # "NomeDoCertificado.pfx" = "outra-senha-so-deste-certificado"
 
-# Conexão com o painel SaaS (opcional). Deixe a seção inteira comentada, ou
-# com "url"/"chave" vazios, para rodar em modo legado — exatamente como hoje,
-# sem nenhuma chamada de rede além do próprio Portal Nacional NFS-e. Só liga
-# o modo agente (identidade, licenciamento, métricas, configuração remota)
-# quando os dois campos abaixo estiverem preenchidos.
-#
-# [api]
-# url = "https://api.seudominio.com.br"
-# chave = "nfse_a1b2c3d4_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-# # Dias que o agente continua funcionando normalmente se o painel estiver
-# # fora do ar (usando a última resposta válida em cache). Passado esse
-# # prazo, a ferramenta para e pede para verificar a conexão.
-# tolerancia_offline_dias = 7
+# Conexão com o painel SaaS — OBRIGATÓRIA. A ferramenta recusa rodar se
+# "url" e "chave" não estiverem os dois preenchidos.
+[api]
+url = "https://api.seudominio.com.br"
+chave = "nfse_a1b2c3d4_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
