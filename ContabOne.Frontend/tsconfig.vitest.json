@@ -1,8 +1,0 @@
-{
-  "extends": "./tsconfig.app.json",
-  "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.vitest.tsbuildinfo",
-    "types": ["vite/client", "@testing-library/jest-dom"]
-  },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "src/testes/**/*.ts", "vitest.config.ts"]
-}

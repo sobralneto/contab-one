@@ -1,8 +1,0 @@
-# Robô DET - Domicílio Eletrônico Trabalhista
-# Python 3.11+
-playwright>=1.49.0
-python-dotenv>=1.0.1
-openpyxl>=3.1.0
-
-# Só para gerar o executável (python build.py):
-#   pip install pyinstaller

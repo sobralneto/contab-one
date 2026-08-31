@@ -1,4 +1,0 @@
-requests>=2.31
-requests-pkcs12>=1.24
-reportlab>=4.0
-cryptography>=42.0
