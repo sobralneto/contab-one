@@ -118,8 +118,10 @@ public static class ExecucoesEndpoints
                 escritorioId = g.Key.EscritorioId,
                 escritorioNome = g.Key.EscritorioNome,
                 total = g.Count(),
-                sucesso = g.Count(e => e.Status == StatusExecucao.Sucesso.ToString()),
-                parcial = g.Count(e => e.Status == StatusExecucao.Parcial.ToString()),
+                // A execuções já vêm ordenadas por IniciadoEm desc (query acima) —
+                // o status exibido no resumo é o da execução mais recente, não a
+                // contagem de todas.
+                ultimoStatus = g.OrderByDescending(e => e.IniciadoEm).First().Status,
                 falha = g.Count(e => e.Status == StatusExecucao.Falha.ToString()),
                 execucoes = g,
             })
@@ -133,13 +135,14 @@ public static class ExecucoesEndpoints
         var linhas = await (produtoId == null
                 ? db.ExecucaoMetricas.AsQueryable()
                 : db.ExecucaoMetricas.Where(m => m.Execucao.Agente.ProdutoId == produtoId.Value))
-            .GroupBy(m => new { m.ClienteId, m.Cliente.Nome, m.ExecucaoId, m.Execucao.Status })
+            .GroupBy(m => new { m.ClienteId, m.Cliente.Nome, m.ExecucaoId, m.Execucao.Status, m.Execucao.IniciadoEm })
             .Select(g => new
             {
                 g.Key.ClienteId,
                 g.Key.Nome,
                 g.Key.ExecucaoId,
                 g.Key.Status,
+                g.Key.IniciadoEm,
                 Baixadas = g.Sum(x => x.QtdBaixadas),
             })
             .ToListAsync();
@@ -151,9 +154,8 @@ public static class ExecucoesEndpoints
                 clienteId = g.Key.ClienteId,
                 clienteNome = g.Key.Nome,
                 total = g.Count(),
-                sucesso = g.Count(l => l.Status == StatusExecucao.Sucesso),
-                parcial = g.Count(l => l.Status == StatusExecucao.Parcial),
-                falha = g.Count(l => l.Status == StatusExecucao.Falha),
+                // Status da execução mais recente do cliente, não a contagem de todas.
+                ultimoStatus = g.OrderByDescending(l => l.IniciadoEm).First().Status.ToString(),
                 totalBaixadas = g.Sum(l => l.Baixadas),
             })
             .OrderByDescending(x => x.total)
@@ -184,17 +186,21 @@ public static class ExecucoesEndpoints
                 : (long?)null,
             execucao.VersaoAgente,
             execucao.MensagemErro,
-            metricas = execucao.Metricas.Select(m => new
-            {
-                m.ClienteId,
-                ClienteNome = m.Cliente?.Nome,
-                Tipo = m.Tipo.ToString(),
-                m.Competencia,
-                m.QtdBaixadas,
-                m.QtdPuladas,
-                m.QtdFalhas,
-                m.DuracaoMs,
-            }),
+            metricas = execucao.Metricas
+                .OrderBy(m => m.Cliente?.Nome)
+                .ThenBy(m => m.Competencia)
+                .ThenBy(m => m.Tipo)
+                .Select(m => new
+                {
+                    m.ClienteId,
+                    ClienteNome = m.Cliente?.Nome,
+                    Tipo = m.Tipo.ToString(),
+                    m.Competencia,
+                    m.QtdBaixadas,
+                    m.QtdPuladas,
+                    m.QtdFalhas,
+                    m.DuracaoMs,
+                }),
         });
     }
 }

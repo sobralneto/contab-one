@@ -11,6 +11,7 @@ public static class DashboardEndpoints
         group.MapGet("/kpis", KpisAsync);
         group.MapGet("/series", SeriesAsync);
         group.MapGet("/ranking", RankingAsync);
+        group.MapGet("/certificados", CertificadosAsync);
         return group;
     }
 
@@ -62,8 +63,7 @@ public static class DashboardEndpoints
         string? ate,
         Guid? escritorioId,
         Guid? clienteId,
-        AppDbContext db,
-        TenantContext tenant)
+        AppDbContext db)
     {
         var query = db.ExecucaoMetricas.AsQueryable();
 
@@ -81,33 +81,20 @@ public static class DashboardEndpoints
         if (clienteId.HasValue)
             query = query.Where(m => m.ClienteId == clienteId.Value);
 
-        // Admin agrega por escritório; escritório/usuário agrega por cliente.
-        // O eixo X do gráfico exibe o `label` da entidade (não a competência).
-        object dados = tenant.IsAdmin
-            ? await query
-                .GroupBy(m => new { m.Cliente!.EscritorioId, EscritorioNome = m.Cliente!.Escritorio.Nome, m.Tipo })
-                .Select(g => new
-                {
-                    competencia = "",
-                    label = g.Key.EscritorioNome,
-                    tipo = g.Key.Tipo.ToString(),
-                    qtd = g.Sum(x => x.QtdBaixadas),
-                })
-                .OrderBy(x => x.label)
-                .ThenBy(x => x.tipo)
-                .ToListAsync()
-            : await query
-                .GroupBy(m => new { m.ClienteId, m.Cliente!.Nome, m.Tipo })
-                .Select(g => new
-                {
-                    competencia = "",
-                    label = g.Key.Nome,
-                    tipo = g.Key.Tipo.ToString(),
-                    qtd = g.Sum(x => x.QtdBaixadas),
-                })
-                .OrderBy(x => x.label)
-                .ThenBy(x => x.tipo)
-                .ToListAsync();
+        // O eixo X do gráfico é a competência (mês); escritorioId/clienteId acima
+        // já restringem a série a UMA entidade por vez, então a barra de cada mês
+        // soma só o que o filtro deixou passar.
+        var dados = await query
+            .GroupBy(m => new { m.Competencia, m.Tipo })
+            .Select(g => new
+            {
+                competencia = g.Key.Competencia,
+                tipo = g.Key.Tipo.ToString(),
+                qtd = g.Sum(x => x.QtdBaixadas),
+            })
+            .OrderBy(x => x.competencia)
+            .ThenBy(x => x.tipo)
+            .ToListAsync();
 
         return Results.Ok(dados);
     }
@@ -149,5 +136,30 @@ public static class DashboardEndpoints
             .ToListAsync();
 
         return Results.Ok(rankingClientes);
+    }
+
+    private static async Task<IResult> CertificadosAsync(
+        AppDbContext db,
+        TenantContext tenant)
+    {
+        var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
+        var limite = hoje.AddDays(30);
+
+        // Vencidos e vencendo em 30 dias, mais urgente primeiro. Mesmo limiar
+        // usado no KPI (certificadosVencendo30d) e no AlertaJob.
+        var certificados = await db.Clientes
+            .Where(c => c.CertificadoValidade != null && c.CertificadoValidade <= limite)
+            .OrderBy(c => c.CertificadoValidade)
+            .Select(c => new
+            {
+                clienteId = c.Id,
+                codigo = c.Codigo,
+                nome = c.Nome,
+                certificadoValidade = c.CertificadoValidade,
+            })
+            .Take(50)
+            .ToListAsync();
+
+        return Results.Ok(certificados);
     }
 }
