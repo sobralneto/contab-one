@@ -44,7 +44,6 @@ export interface UltimaExecucaoResumo {
 
 export interface SerieItem {
   competencia: string
-  label?: string
   tipo: TipoNota
   qtd: number
 }
@@ -54,6 +53,13 @@ export interface RankingItem {
   nome: string
   codigo: string | null
   total: number
+}
+
+export interface CertificadoVencimentoItem {
+  clienteId: string
+  codigo: string
+  nome: string
+  certificadoValidade: string
 }
 
 // ── Clientes ──
@@ -107,8 +113,7 @@ export interface ExecucaoGrupoEscritorio {
   escritorioId: string
   escritorioNome: string
   total: number
-  sucesso: number
-  parcial: number
+  ultimoStatus: StatusExecucao
   falha: number
   execucoes: ExecucaoResumo[]
 }
@@ -117,9 +122,7 @@ export interface ExecucaoGrupoCliente {
   clienteId: string
   clienteNome: string
   total: number
-  sucesso: number
-  parcial: number
-  falha: number
+  ultimoStatus: StatusExecucao
   totalBaixadas: number
 }
 

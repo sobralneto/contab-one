@@ -34,7 +34,7 @@ function corDoToken(nome: string): string {
 }
 
 function rotuloSerie(s: SerieItem): string {
-  return s.label || formatCompetencia(s.competencia)
+  return formatCompetencia(s.competencia)
 }
 
 function formatCompetencia(m: string): string {

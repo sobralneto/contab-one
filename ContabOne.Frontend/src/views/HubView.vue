@@ -16,56 +16,60 @@
     />
 
     <template v-else>
-      <section v-for="grupo in catalogo.porDominio" :key="grupo.dominio.codigo" class="dominio-secao">
-        <h2 class="dominio-titulo">{{ grupo.dominio.nome }}</h2>
+      <CertificadosVencimento :certificados="certificados" />
 
-        <div class="cards-grid">
-          <template v-for="produto in grupo.produtos" :key="produto.id">
-            <RouterLink
-              v-if="produto.contratado || auth.isPlatformAdmin"
-              :to="`/f/${produto.codigo}`"
-              class="ferramenta-card"
-            >
-              <div class="ferramenta-icone">
-                <IconeCatalogo :nome="grupo.dominio.icone" />
-              </div>
-              <div class="ferramenta-corpo">
-                <div class="ferramenta-nome">{{ produto.nome }}</div>
-                <p class="ferramenta-desc">{{ produto.descricao || '—' }}</p>
+      <div class="dominios-row">
+        <section v-for="grupo in catalogo.porDominio" :key="grupo.dominio.codigo" class="dominio-secao">
+          <h2 class="dominio-titulo">{{ grupo.dominio.nome }}</h2>
 
-                <div v-if="produto.codigo === 'nfse' && kpisNfse" class="ferramenta-stats">
-                  <div class="stat">
-                    <span class="stat-valor">{{ kpisNfse.notasBaixadasMes.toLocaleString('pt-BR') }}</span>
-                    <span class="stat-label">notas no mês</span>
-                  </div>
-                  <div class="stat">
-                    <span class="stat-valor">{{ kpisNfse.totalClientes.toLocaleString('pt-BR') }}</span>
-                    <span class="stat-label">clientes</span>
-                  </div>
+          <div class="cards-grid">
+            <template v-for="produto in grupo.produtos" :key="produto.id">
+              <RouterLink
+                v-if="produto.contratado || auth.isPlatformAdmin"
+                :to="`/f/${produto.codigo}`"
+                class="ferramenta-card"
+              >
+                <div class="ferramenta-icone">
+                  <IconeCatalogo :nome="grupo.dominio.icone" />
                 </div>
+                <div class="ferramenta-corpo">
+                  <div class="ferramenta-nome">{{ produto.nome }}</div>
+                  <p class="ferramenta-desc">{{ produto.descricao || '—' }}</p>
 
-                <!-- Admin entra em qualquer ferramenta ativa, mas o rótulo
-                     ainda diz que ESTE escritório em foco não contratou —
-                     informação, não bloqueio. -->
-                <span v-if="!produto.contratado" class="pill-indisponivel">Não contratada</span>
-              </div>
-            </RouterLink>
+                  <div v-if="produto.codigo === 'nfse' && kpisNfse" class="ferramenta-stats">
+                    <div class="stat">
+                      <span class="stat-valor">{{ kpisNfse.notasBaixadasMes.toLocaleString('pt-BR') }}</span>
+                      <span class="stat-label">notas no mês</span>
+                    </div>
+                    <div class="stat">
+                      <span class="stat-valor">{{ kpisNfse.totalClientes.toLocaleString('pt-BR') }}</span>
+                      <span class="stat-label">clientes</span>
+                    </div>
+                  </div>
 
-            <!-- Ferramenta ativa, não contratada: só informativo — nenhum
-                 atalho, nenhum link, nenhum contato comercial (design.md). -->
-            <div v-else class="ferramenta-card ferramenta-card--indisponivel">
-              <div class="ferramenta-icone ferramenta-icone--indisponivel">
-                <IconeCatalogo :nome="grupo.dominio.icone" />
+                  <!-- Admin entra em qualquer ferramenta ativa, mas o rótulo
+                       ainda diz que ESTE escritório em foco não contratou —
+                       informação, não bloqueio. -->
+                  <span v-if="!produto.contratado" class="pill-indisponivel">Não contratada</span>
+                </div>
+              </RouterLink>
+
+              <!-- Ferramenta ativa, não contratada: só informativo — nenhum
+                   atalho, nenhum link, nenhum contato comercial (design.md). -->
+              <div v-else class="ferramenta-card ferramenta-card--indisponivel">
+                <div class="ferramenta-icone ferramenta-icone--indisponivel">
+                  <IconeCatalogo :nome="grupo.dominio.icone" />
+                </div>
+                <div class="ferramenta-corpo">
+                  <div class="ferramenta-nome">{{ produto.nome }}</div>
+                  <p class="ferramenta-desc">{{ produto.descricao || '—' }}</p>
+                  <span class="pill-indisponivel">Não contratada</span>
+                </div>
               </div>
-              <div class="ferramenta-corpo">
-                <div class="ferramenta-nome">{{ produto.nome }}</div>
-                <p class="ferramenta-desc">{{ produto.descricao || '—' }}</p>
-                <span class="pill-indisponivel">Não contratada</span>
-              </div>
-            </div>
-          </template>
-        </div>
-      </section>
+            </template>
+          </div>
+        </section>
+      </div>
     </template>
   </div>
 </template>
@@ -74,10 +78,11 @@
 import { ref, onMounted } from 'vue'
 import EstadoVazio from '@/components/comum/EstadoVazio.vue'
 import IconeCatalogo from '@/components/comum/IconeCatalogo.vue'
+import CertificadosVencimento from '@/components/dashboard/CertificadosVencimento.vue'
 import { useCatalogoStore } from '@/stores/catalogo'
 import { useAuthStore } from '@/stores/auth'
-import { fetchKpis } from '@/api/endpoints/dashboard'
-import type { DashboardKpis } from '@/api/types'
+import { fetchKpis, fetchCertificadosVencimento } from '@/api/endpoints/dashboard'
+import type { DashboardKpis, CertificadoVencimentoItem } from '@/api/types'
 
 const catalogo = useCatalogoStore()
 const auth = useAuthStore()
@@ -86,11 +91,20 @@ const auth = useAuthStore()
 // hoje só o NFS-e. As demais mostram card sem número, não um número errado.
 const kpisNfse = ref<DashboardKpis | null>(null)
 
+// Validade de certificado é do cliente/escritório, não de uma ferramenta —
+// por isso mora no hub, não na visão geral de uma ferramenta específica.
+const certificados = ref<CertificadoVencimentoItem[]>([])
+
 onMounted(async () => {
   try {
     kpisNfse.value = await fetchKpis()
   } catch {
     // Card do NFS-e some os números; o resto da tela continua de pé.
+  }
+  try {
+    certificados.value = await fetchCertificadosVencimento()
+  } catch {
+    // Card de certificados só some; o resto da tela continua de pé.
   }
 })
 </script>
@@ -102,10 +116,18 @@ onMounted(async () => {
   gap: 2rem;
 }
 
+.dominios-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
+
 .dominio-secao {
   display: flex;
   flex-direction: column;
   gap: 0.875rem;
+  flex: 0 1 auto;
+  width: 300px;
 }
 
 .dominio-titulo {

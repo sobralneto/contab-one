@@ -26,10 +26,9 @@
               <td class="col-nome">{{ g.escritorioNome }}</td>
               <td class="text-right tabular-nums">{{ g.total }}</td>
               <td>
-                <span class="status-chip status-ok" v-if="g.sucesso > 0">{{ g.sucesso }} ok</span>
-                <span class="status-chip status-warn" v-if="g.parcial > 0">{{ g.parcial }} parcial</span>
-                <span class="status-chip status-err" v-if="g.falha > 0">{{ g.falha }} falha</span>
-                <span v-if="g.sucesso === 0 && g.parcial === 0 && g.falha === 0">—</span>
+                <span class="status-chip" :class="statusClass(g.ultimoStatus)">
+                  {{ statusLabel(g.ultimoStatus) }}
+                </span>
               </td>
               <td class="text-right tabular-nums">{{ totalBaixadas(g).toLocaleString('pt-BR') }}</td>
               <td class="text-right tabular-nums">{{ g.falha }}</td>
@@ -134,10 +133,9 @@
             <td class="col-nome">{{ g.clienteNome }}</td>
             <td class="text-right tabular-nums">{{ g.total }}</td>
             <td>
-              <span class="status-chip status-ok" v-if="g.sucesso > 0">{{ g.sucesso }} ok</span>
-              <span class="status-chip status-warn" v-if="g.parcial > 0">{{ g.parcial }} parcial</span>
-              <span class="status-chip status-err" v-if="g.falha > 0">{{ g.falha }} falha</span>
-              <span v-if="g.sucesso === 0 && g.parcial === 0 && g.falha === 0">—</span>
+              <span class="status-chip" :class="statusClass(g.ultimoStatus)">
+                {{ statusLabel(g.ultimoStatus) }}
+              </span>
             </td>
             <td class="text-right tabular-nums">{{ g.totalBaixadas.toLocaleString('pt-BR') }}</td>
           </tr>

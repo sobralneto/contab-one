@@ -1,5 +1,5 @@
 import apiClient from '../client'
-import type { DashboardKpis, SerieItem, RankingItem } from '../types'
+import type { DashboardKpis, SerieItem, RankingItem, CertificadoVencimentoItem } from '../types'
 
 export async function fetchKpis(): Promise<DashboardKpis> {
   const { data } = await apiClient.get<DashboardKpis>('/api/dashboard/kpis')
@@ -18,5 +18,10 @@ export async function fetchSeries(params?: {
 
 export async function fetchRanking(): Promise<RankingItem[]> {
   const { data } = await apiClient.get<RankingItem[]>('/api/dashboard/ranking')
+  return data
+}
+
+export async function fetchCertificadosVencimento(): Promise<CertificadoVencimentoItem[]> {
+  const { data } = await apiClient.get<CertificadoVencimentoItem[]>('/api/dashboard/certificados')
   return data
 }

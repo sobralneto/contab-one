@@ -36,7 +36,7 @@
               <rect x="3" y="14" width="7" height="7" />
             </svg>
           </span>
-          <span class="nav-label">Meu hub</span>
+          <span class="nav-label">Dashboard</span>
         </router-link>
 
         <!-- Ferramentas: geradas do catálogo da sessão, não escritas aqui —
@@ -76,7 +76,11 @@
         </template>
         <template v-else-if="catalogo.falhou">
           <div class="nav-section-label">Ferramentas</div>
-          <button type="button" class="nav-item nav-item--retry" @click="catalogo.carregar()">
+          <button
+            type="button"
+            class="nav-item nav-item--retry"
+            @click="catalogo.carregar()"
+          >
             <span class="nav-icon">
               <svg
                 width="18"
@@ -261,7 +265,6 @@
           </router-link>
         </template>
       </nav>
-
     </aside>
 
     <!-- Main area -->
@@ -387,7 +390,10 @@ import { computed } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useUiStore } from "@/stores/ui";
-import { useCatalogoStore, type DominioComFerramentas } from "@/stores/catalogo";
+import {
+  useCatalogoStore,
+  type DominioComFerramentas,
+} from "@/stores/catalogo";
 import { logout as apiLogout } from "@/api/endpoints/auth";
 import ExplicacaoPagina from "@/components/comum/ExplicacaoPagina.vue";
 import IconeCatalogo from "@/components/comum/IconeCatalogo.vue";
@@ -408,7 +414,9 @@ const gruposVisiveis = computed<DominioComFerramentas[]>(() =>
   catalogo.porDominio
     .map((grupo) => ({
       dominio: grupo.dominio,
-      produtos: auth.isPlatformAdmin ? grupo.produtos : grupo.produtos.filter((p) => p.contratado),
+      produtos: auth.isPlatformAdmin
+        ? grupo.produtos
+        : grupo.produtos.filter((p) => p.contratado),
     }))
     .filter((grupo) => grupo.produtos.length > 0),
 );
@@ -420,13 +428,18 @@ const gruposVisiveis = computed<DominioComFerramentas[]>(() =>
 // outras: só PlatformAdmin, nunca EscritorioAdmin.
 type PaginaSubmenu = Exclude<PaginaFerramenta, "visao-geral">;
 
-const PAGINA_META: Record<PaginaSubmenu, { label: string; papel?: "escritorioAdmin" | "platformAdmin" }> = {
+const PAGINA_META: Record<
+  PaginaSubmenu,
+  { label: string; papel?: "escritorioAdmin" | "platformAdmin" }
+> = {
   execucoes: { label: "Execuções" },
   configuracao: { label: "Configuração", papel: "escritorioAdmin" },
   regras: { label: "Regras de Coleta", papel: "platformAdmin" },
 };
 
-function podeVerPagina(papel: "escritorioAdmin" | "platformAdmin" | undefined): boolean {
+function podeVerPagina(
+  papel: "escritorioAdmin" | "platformAdmin" | undefined,
+): boolean {
   if (papel === "platformAdmin") return auth.isPlatformAdmin;
   if (papel === "escritorioAdmin") return auth.isEscritorioAdmin;
   return true;
