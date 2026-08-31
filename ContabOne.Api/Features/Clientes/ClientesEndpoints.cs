@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using ContabOne.Api.Domain;
 using ContabOne.Api.Infra;
+using ContabOne.Api.Security;
 
 namespace ContabOne.Api.Features.Clientes;
 
@@ -10,10 +11,55 @@ public static class ClientesEndpoints
     public static RouteGroupBuilder MapClientesEndpoints(this RouteGroupBuilder group)
     {
         group.MapGet("/", ListarAsync);
+        group.MapGet("/proximo-codigo", ProximoCodigoAsync);
         group.MapPost("/", CriarAsync);
         group.MapPut("/{id:guid}", AtualizarAsync);
         group.MapDelete("/{id:guid}", ExcluirAsync);
         return group;
+    }
+
+    /// <summary>
+    /// Deriva hash e máscara do CNPJ cru quando informado — o hash é HMAC com
+    /// segredo que só o servidor tem, então quem cadastra não consegue
+    /// calculá-lo sozinho. Sem CNPJ cru, preserva o que veio pronto no
+    /// request (compatibilidade com o cadastro atual, que só envia a máscara).
+    /// </summary>
+    private static (string mascarado, string hash) DerivarCnpj(
+        string? cnpjCru, string? mascaradoAtual, string? hashAtual, IConfiguration config)
+    {
+        if (string.IsNullOrWhiteSpace(cnpjCru))
+            return (mascaradoAtual ?? string.Empty, hashAtual ?? string.Empty);
+
+        var limpo = CnpjHasher.Limpar(cnpjCru);
+        if (limpo.Length != 14)
+            return (mascaradoAtual ?? string.Empty, hashAtual ?? string.Empty);
+
+        var hmacKey = config["HMAC_CNPJ_KEY"]!;
+        return (CnpjHasher.Mascarar(limpo), CnpjHasher.Hash(limpo, hmacKey));
+    }
+
+    private static async Task<IResult> ProximoCodigoAsync(
+        Guid? escritorioId,
+        AppDbContext db,
+        TenantContext tenant)
+    {
+        var escopo = tenant.IsAdmin ? escritorioId : tenant.EscritorioId;
+        if (escopo == null)
+            return Results.BadRequest(new { erro = "Escritório é obrigatório" });
+
+        var codigosUsados = (await db.Clientes
+                .Where(c => c.EscritorioId == escopo)
+                .Select(c => c.Codigo)
+                .ToListAsync())
+            .Where(c => c.Length == 4 && c.All(char.IsDigit))
+            .Select(int.Parse)
+            .ToHashSet();
+
+        var proximo = 1;
+        while (codigosUsados.Contains(proximo))
+            proximo++;
+
+        return Results.Ok(new { codigo = proximo.ToString("D4") });
     }
 
     private static async Task<IResult> ListarAsync(
@@ -77,7 +123,8 @@ public static class ClientesEndpoints
         ClienteRequest req,
         IValidator<ClienteRequest> validator,
         AppDbContext db,
-        TenantContext tenant)
+        TenantContext tenant,
+        IConfiguration config)
     {
         var validation = await validator.ValidateAsync(req);
         if (!validation.IsValid)
@@ -114,15 +161,23 @@ public static class ClientesEndpoints
         if (plano != null && await db.Clientes.CountAsync(c => c.EscritorioId == escritorioId) >= plano.MaxClientes)
             return Results.BadRequest(new { erro = "Limite de clientes do plano atingido" });
 
+        var (cnpjMascarado, cnpjHash) = DerivarCnpj(req.Cnpj, req.CnpjMascarado, req.CnpjHash, config);
+
+        // Origem "Importacao" só quando o próprio caller pede — o cadastro
+        // manual pela tela continua Manual mesmo informando CNPJ cru agora.
+        var origem = string.Equals(req.Origem, nameof(OrigemCliente.Importacao), StringComparison.OrdinalIgnoreCase)
+            ? OrigemCliente.Importacao
+            : OrigemCliente.Manual;
+
         var cliente = new Cliente
         {
             EscritorioId = escritorioId,
             Codigo = req.Codigo,
             Nome = req.Nome,
-            CnpjMascarado = req.CnpjMascarado ?? string.Empty,
-            CnpjHash = req.CnpjHash ?? string.Empty,
+            CnpjMascarado = cnpjMascarado,
+            CnpjHash = cnpjHash,
             CertificadoValidade = req.CertificadoValidade,
-            Origem = OrigemCliente.Manual,
+            Origem = origem,
         };
 
         db.Clientes.Add(cliente);
@@ -136,7 +191,8 @@ public static class ClientesEndpoints
         ClienteRequest req,
         IValidator<ClienteRequest> validator,
         AppDbContext db,
-        TenantContext tenant)
+        TenantContext tenant,
+        IConfiguration config)
     {
         var validation = await validator.ValidateAsync(req);
         if (!validation.IsValid)
@@ -147,10 +203,11 @@ public static class ClientesEndpoints
             return Results.NotFound();
 
         cliente.Nome = req.Nome;
-        if (!string.IsNullOrEmpty(req.CnpjMascarado))
-            cliente.CnpjMascarado = req.CnpjMascarado;
-        if (!string.IsNullOrEmpty(req.CnpjHash))
-            cliente.CnpjHash = req.CnpjHash;
+        var (cnpjMascarado, cnpjHash) = DerivarCnpj(req.Cnpj, req.CnpjMascarado, req.CnpjHash, config);
+        if (!string.IsNullOrEmpty(cnpjMascarado))
+            cliente.CnpjMascarado = cnpjMascarado;
+        if (!string.IsNullOrEmpty(cnpjHash))
+            cliente.CnpjHash = cnpjHash;
         cliente.CertificadoValidade = req.CertificadoValidade;
         cliente.AtualizadoEm = DateTime.UtcNow;
 
@@ -191,10 +248,20 @@ public record ClienteRequest
 {
     public string Codigo { get; init; } = string.Empty;
     public string Nome { get; init; } = string.Empty;
+
+    /// <summary>
+    /// CNPJ completo, opcional. Quando informado, hash e máscara são
+    /// derivados no servidor e o valor cru é descartado — nunca persistido.
+    /// Ganha prioridade sobre <see cref="CnpjMascarado"/>/<see cref="CnpjHash"/>.
+    /// </summary>
+    public string? Cnpj { get; init; }
     public string? CnpjMascarado { get; init; }
     public string? CnpjHash { get; init; }
     public DateOnly? CertificadoValidade { get; init; }
     public Guid? EscritorioId { get; init; }
+
+    /// <summary>"Importacao" quando o cliente nasce da importação de um documento; qualquer outro valor (ou ausência) é Manual.</summary>
+    public string? Origem { get; init; }
 }
 
 public class ClienteRequestValidator : AbstractValidator<ClienteRequest>
@@ -203,5 +270,8 @@ public class ClienteRequestValidator : AbstractValidator<ClienteRequest>
     {
         RuleFor(x => x.Codigo).NotEmpty().MaximumLength(20);
         RuleFor(x => x.Nome).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Cnpj)
+            .Must(c => string.IsNullOrWhiteSpace(c) || CnpjHasher.Limpar(c).Length == 14)
+            .WithMessage("CNPJ deve ter 14 dígitos");
     }
 }

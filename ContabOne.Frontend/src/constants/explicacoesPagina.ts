@@ -106,4 +106,27 @@ export const EXPLICACOES_PAGINA: Record<string, ExplicacaoPagina> = {
       'Publicar cria uma versão nova e desativa a anterior, então dá para voltar atrás republicando o conteúdo antigo.',
     ],
   },
+
+  // Genérico: qualquer ferramenta sem agente que precise de um assistente de
+  // carga e conferência de documento herda este texto por padrão.
+  importacao: {
+    titulo: 'Importar extratos',
+    paragrafos: [
+      'Carregue o PDF do documento — a leitura acontece no seu navegador, nenhum arquivo sobe para o servidor.',
+      'Confira os valores extraídos antes de gravar: é a única checagem entre o documento e o banco, então vale revisar as linhas marcadas em vermelho.',
+      'Depois de gravado, o painel fica disponível na visão geral sem precisar carregar o PDF de novo.',
+    ],
+  },
+
+  // pgdas.visao-geral sobrepõe o texto genérico de "visao-geral" (que fala de
+  // agente e notas — não se aplica: PGDAS-D é a primeira ferramenta sem
+  // agente do catálogo).
+  'pgdas.visao-geral': {
+    titulo: 'PGDAS-D — Apuração do Simples Nacional',
+    paragrafos: [
+      'As competências já gravadas, por cliente — faturamento, DAS e se o pagamento foi reconhecido.',
+      'Pendências aparecem em destaque: DAS em aberto, linha em que a soma dos tributos não bate com o DAS informado, e sublimite estadual acima de 80%.',
+      'O ícone de gráfico abre o painel completo daquele cliente, reconstruído a partir do que já está gravado — sem pedir arquivo nenhum.',
+    ],
+  },
 }

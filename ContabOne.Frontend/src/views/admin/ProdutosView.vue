@@ -142,6 +142,20 @@
               </div>
             </div>
 
+            <div class="form-row">
+              <div class="form-field checkbox-field">
+                <label class="checkbox-label">
+                  <input type="checkbox" v-model="form.temAgente" />
+                  Tem agente
+                </label>
+                <span class="form-hint">
+                  Desmarque para ferramenta sem binário instalado na máquina do
+                  escritório (ex.: assistente de importação) — ela some do
+                  seletor de nova chave, mas continua no menu e no hub.
+                </span>
+              </div>
+            </div>
+
             <div class="modal-actions">
               <button type="button" class="btn-secondary" @click="fecharModal">Cancelar</button>
               <button type="submit" class="btn-primary" :disabled="salvando || !podeSalvar">
@@ -178,6 +192,7 @@ const PAGINAS_DISPONIVEIS: { valor: PaginaFerramenta; label: string }[] = [
   { valor: 'execucoes', label: 'Execuções' },
   { valor: 'configuracao', label: 'Configuração' },
   { valor: 'regras', label: 'Regras de coleta (restrita a PlatformAdmin)' },
+  { valor: 'importacao', label: 'Importação (assistente de carga de documento)' },
 ]
 
 const form = reactive({
@@ -187,6 +202,9 @@ const form = reactive({
   dominioCodigo: '',
   paginas: [] as PaginaFerramenta[],
   ativo: true,
+  // Governa só a oferta de chave nova (mesma família de `ativo`) — a maioria
+  // das ferramentas tem um agente em campo, então o default é `true`.
+  temAgente: true,
   ordem: 0,
 })
 
@@ -247,6 +265,7 @@ function abrirCriar() {
   form.dominioCodigo = ''
   form.paginas = []
   form.ativo = true
+  form.temAgente = true
   form.ordem = produtos.value.length + 1
   modalAberto.value = true
 }
@@ -261,6 +280,7 @@ function abrirEditar(p: ProdutoAdminDto) {
   form.dominioCodigo = p.dominioCodigo
   form.paginas = [...p.paginas]
   form.ativo = p.ativo
+  form.temAgente = p.temAgente
   form.ordem = p.ordem
   modalAberto.value = true
 }
@@ -282,6 +302,7 @@ async function salvar() {
         dominioCodigo: form.dominioCodigo,
         paginas: form.paginas,
         ativo: form.ativo,
+        temAgente: form.temAgente,
         ordem: form.ordem,
       })
     } else {
@@ -292,6 +313,7 @@ async function salvar() {
         dominioCodigo: form.dominioCodigo,
         paginas: form.paginas,
         ativo: form.ativo,
+        temAgente: form.temAgente,
         ordem: form.ordem,
       })
     }

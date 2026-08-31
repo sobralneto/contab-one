@@ -199,9 +199,20 @@ $RECYCLE.BIN/
 
 # Escrita atômica (padrão .tmp + replace usado no _controle.json).
 *.tmp
-Nfse.Agent
-ContabOne.Api
-ContabOne.Frontend
-ContabOne.Api.Tests
-Det.Agent
-Rfb.Agent
+
+
+# ==========================================================================
+# 6. Subprojetos com controle de versão próprio
+#
+# Nfse.Agent, ContabOne.Api, ContabOne.Frontend e Det.Agent são repositórios
+# git independentes (cada um com remoto próprio no GitHub) e não devem ser
+# versionados também aqui no contab-one. ContabOne.Api.Tests e Rfb.Agent
+# ainda não têm .git próprio, mas seguem a mesma regra por ora.
+# ==========================================================================
+
+Nfse.Agent/
+ContabOne.Api/
+ContabOne.Frontend/
+ContabOne.Api.Tests/
+Det.Agent/
+Rfb.Agent/

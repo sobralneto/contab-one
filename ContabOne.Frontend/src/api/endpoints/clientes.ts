@@ -1,5 +1,5 @@
 import apiClient from '../client'
-import type { ClienteDto, ClienteRequest, PaginatedResponse } from '../types'
+import type { ClienteDto, ClienteRequest, PaginatedResponse, ProximoCodigoResponse } from '../types'
 
 export async function listarClientes(params?: {
   busca?: string
@@ -24,4 +24,12 @@ export async function atualizarCliente(id: string, req: ClienteRequest): Promise
 
 export async function excluirCliente(id: string): Promise<void> {
   await apiClient.delete(`/api/clientes/${id}`)
+}
+
+/** Sugestão do próximo código numérico de 4 dígitos livre para o escritório em escopo — editável antes de confirmar. */
+export async function proximoCodigoCliente(escritorioId?: string): Promise<ProximoCodigoResponse> {
+  const { data } = await apiClient.get<ProximoCodigoResponse>('/api/clientes/proximo-codigo', {
+    params: escritorioId ? { escritorioId } : undefined,
+  })
+  return data
 }

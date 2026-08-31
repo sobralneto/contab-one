@@ -19,8 +19,8 @@ const CREDENCIAIS_SEED = [
 // Clientes e Agentes NÃO entram aqui: não são páginas de ferramenta, são
 // rotas transversais (`/clientes`, `/agentes`) — a chave delas é a bare
 // (`clientes`, `agentes`), já coberta por chavesTransversais abaixo.
-const PAGINAS_FERRAMENTA = ['visao-geral', 'execucoes', 'configuracao', 'regras']
-const PRODUTOS_SEEDADOS = ['nfse', 'det']
+const PAGINAS_FERRAMENTA = ['visao-geral', 'execucoes', 'configuracao', 'regras', 'importacao']
+const PRODUTOS_SEEDADOS = ['nfse', 'det', 'pgdas']
 
 /**
  * Marca a explicação de todas as páginas como já vista, para os três usuários

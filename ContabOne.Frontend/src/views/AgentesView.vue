@@ -201,7 +201,9 @@ const produtoEscolhido = computed(() =>
 // A API devolve o catálogo ativo INTEIRO (a navegação por domínio precisa do
 // que NÃO foi contratado também, para mostrar como indisponível no hub) —
 // aqui, que é o seletor de uma chave nova, o filtro por `contratado` é quem
-// decide o que aparece.
+// decide o que aparece. `temAgente` filtra além disso: ferramenta sem agente
+// (ex.: pgdas) nunca deveria ser destino de uma chave — nenhum binário vai
+// usá-la (catalogo-dominios-ferramentas, "A ferramenta declara se tem agente").
 async function carregarProdutos() {
   produtoSelecionado.value = null
   produtos.value = []
@@ -211,7 +213,7 @@ async function carregarProdutos() {
   loadingProdutos.value = true
   try {
     const catalogo = await listarProdutos(escritorioSelecionado.value ?? undefined)
-    produtos.value = catalogo.filter((p) => p.contratado)
+    produtos.value = catalogo.filter((p) => p.contratado && p.temAgente)
     if (produtos.value.length === 1) produtoSelecionado.value = produtos.value[0].id
   } catch { /* interceptor handles */ } finally {
     loadingProdutos.value = false

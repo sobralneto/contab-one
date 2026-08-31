@@ -311,14 +311,50 @@ Sem passo de rollback de dado: as tabelas nascem vazias e `Down` as remove.
 
 ## Open Questions
 
-1. **CNPJ mascarado na dashboard** — decidido por mascarar sempre (Risks).
-   Confirmar antes da fase 4; é um documento que vai para o cliente final.
-2. **Terceiro tema `contabone`** — entra como fallback para escritórios que
-   não sejam L&J nem MUDAHR. Se a ferramenta for deliberadamente só para os
-   dois, cai fora e o default vira erro explícito.
-3. **Substituir competência já gravada** — decidido por 409 + confirmação.
-4. **Vencimento do DAS** — mantida a regra atual (dia 20 do mês seguinte,
-   sem ajuste de dia útil ou feriado), gravada e editável na conferência.
-5. **Números no card do hub** — o hub hoje só sabe montar número para o
-   `nfse`, por código literal. Incluir o `pgdas` é opcional nesta mudança;
-   sem isso o card aparece sem número, que é o comportamento já previsto.
+1. **CNPJ mascarado na dashboard** — ✅ decidido e implementado: `dashHTML`
+   só recebe `cliente.cnpjMascarado` (nunca o CNPJ inteiro); testado em
+   `documento.spec.ts` ("nunca imprime o CNPJ inteiro, só a máscara").
+2. **Terceiro tema `contabone`** — ✅ implementado em
+   `src/features/pgdas/dashboard/temas.ts`, derivado dos verdes de
+   `tokens.css` (`--accent`, `--accent-hover`, `--atencao` como terceira cor
+   de contraste nos gráficos). É o fallback de `temaPorCodigo` para qualquer
+   valor de `marca` que não seja `lj`/`mudahr`.
+3. **Substituir competência já gravada** — ✅ implementado: `POST
+   /api/pgdas/apuracoes` devolve 409 com as competências em conflito e a
+   flag `editadoManualmente`; `substituir: true` sobrescreve. Fluxo completo
+   testado em `PgdasTest.cs` (API) e `PgdasImportacaoView.spec.ts` (tela).
+4. **Vencimento do DAS** — ✅ mantida a regra atual (dia 20 do mês seguinte),
+   gravada em `ApuracaoSimples.Vencimento` e editável na conferência.
+5. **Números no card do hub** — não incluído nesta mudança, como já previsto
+   aqui. O card do `pgdas` aparece no hub sem número, comportamento existente
+   para qualquer ferramenta que não seja o `nfse`.
+
+### Decisões tomadas durante a implementação (não previstas acima)
+
+- **`ApuracaoSimples` ganhou `Rba`, `Sublimite` e `Impedido`** (nullable),
+  além dos campos já listados na seção "Uma linha por cliente ×
+  competência". Sem eles o painel de sublimite estadual — citado no `Why`
+  como uma das coisas que a ferramenta autônoma já mostra — não seria
+  reconstruível a partir do banco, o que contradiria o objetivo central da
+  mudança. Faltou nomear esses três campos explicitamente na primeira
+  redação deste documento.
+- **RBT12 não é persistido, e a dashboard reconstruída do banco não mostra
+  mais o card de RBT12** que a ferramenta autônoma tinha. Ele nunca apareceu
+  na lista de dados preservados no `Why` ("faturamento, DAS, carga efetiva,
+  sublimite estadual, segregação da receita") — diferente do sublimite, essa
+  omissão foi deliberada desde a primeira redação, só não estava registrada
+  aqui. Ficou documentado como comentário em `documento.ts`.
+- **Município, anexo e sigla da empresa** (campos que a ferramenta autônoma
+  extraía e mostrava no cabeçalho da dashboard) também saem da versão
+  reconstruída do banco: não fazem parte do `Cliente` da plataforma, e
+  persisti-los exigiria colunas novas sem requisito correspondente em
+  nenhuma spec. O cabeçalho da dashboard mostra nome do cliente e CNPJ
+  mascarado apenas.
+- **`Pago` como `bool` não anulável** (não `bool?`): a ferramenta autônoma
+  tinha um terceiro estado ("—", desconhecido — principalmente para
+  declarações, que não informam pagamento). Persistir esse tri-estado exigia
+  tornar a coluna anulável. Optou-se por manter `bool` simples e resolver a
+  ambiguidade na própria tela de conferência, onde o usuário confirma o
+  status antes de gravar — consistente com o princípio geral desta mudança
+  de que a conferência é o único ponto de validação humana entre o
+  documento e o banco.

@@ -127,8 +127,16 @@ public static class PaginaFerramenta
     /// </summary>
     public const string Regras = "regras";
 
+    /// <summary>
+    /// Assistente de carga e conferência de documento (ex.: PGDAS-D). Componente
+    /// correspondente: <c>views/&lt;ferramenta&gt;/*ImportacaoView.vue</c>. Não é
+    /// visão geral (é ação, não painel), não é execução (não há agente) e não é
+    /// configuração — ferramenta sem agente precisa de um lugar próprio para isto.
+    /// </summary>
+    public const string Importacao = "importacao";
+
     public static readonly IReadOnlyCollection<string> Todas =
-        [VisaoGeral, Execucoes, Configuracao, Regras];
+        [VisaoGeral, Execucoes, Configuracao, Regras, Importacao];
 
     public static bool Valida(string? pagina) => pagina != null && Todas.Contains(pagina);
 }
@@ -175,6 +183,16 @@ public class Produto
     /// não revogação — para cortar acesso existe revogar a chave do agente.
     /// </summary>
     public bool Ativo { get; set; } = true;
+
+    /// <summary>
+    /// Governa apenas a OFERTA de chave de API nova (mesma família de
+    /// <see cref="Ativo"/>) — nunca o caminho de autenticação, que continua
+    /// comparando o código da chave apresentada com o <see cref="Codigo"/> do
+    /// próprio agente, sem consultar o catálogo. Ferramenta sem agente (a
+    /// primeira: PGDAS-D) some do seletor de nova chave, mas segue visível no
+    /// menu e no hub para quem a contratou.
+    /// </summary>
+    public bool TemAgente { get; set; } = true;
 
     public int Ordem { get; set; }
     public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
@@ -353,4 +371,106 @@ public class Alerta
     public DateTime? ResolvidoEm { get; set; }
 
     public bool Aberto => ResolvidoEm == null;
+}
+
+// ── PGDAS-D / Simples Nacional (primeira ferramenta sem agente) ──
+
+/// <summary>
+/// Uma linha por cliente × competência do PGDAS-D. Gravada só depois de o
+/// usuário conferir os valores extraídos do documento no navegador — a API
+/// nunca recebe o PDF, só os valores já conferidos.
+///
+/// Propositalmente NÃO existe coluna "Confere": é derivada da soma dos oito
+/// tributos contra <see cref="Das"/> com tolerância de R$ 0,05
+/// (<see cref="ApuracaoExpressoes"/>), e não pode virar propriedade computada
+/// usada em Where — mesmo defeito de tradução que <see cref="Alerta.Aberto"/>
+/// já causou duas vezes em produção.
+/// </summary>
+public class ApuracaoSimples
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid EscritorioId { get; set; }
+    public Escritorio Escritorio { get; set; } = null!;
+    public Guid ClienteId { get; set; }
+    public Cliente Cliente { get; set; } = null!;
+
+    /// <summary>Formato "2026-03", igual a <see cref="ExecucaoMetrica.Competencia"/>.</summary>
+    public string Competencia { get; set; } = string.Empty;
+
+    public TipoDocumentoPgdas TipoDocumento { get; set; }
+
+    public decimal Faturamento { get; set; }
+    public decimal Das { get; set; }
+
+    // Os oito tributos do PGDAS-D.
+    public decimal Irpj { get; set; }
+    public decimal Csll { get; set; }
+    public decimal Cofins { get; set; }
+    public decimal Pis { get; set; }
+    public decimal Inss { get; set; }
+    public decimal Icms { get; set; }
+    public decimal Ipi { get; set; }
+    public decimal Iss { get; set; }
+
+    /// <summary>Competência declarada sem receita e sem DAS — apuração válida, não erro de extração.</summary>
+    public bool SemMovimento { get; set; }
+
+    /// <summary>Dia 20 do mês seguinte à competência, editável na conferência (§ Open Questions).</summary>
+    public DateOnly Vencimento { get; set; }
+
+    /// <summary>Sem sentido para <see cref="SemMovimento"/> = true — não há DAS a pagar.</summary>
+    public bool Pago { get; set; }
+
+    /// <summary>Receita bruta acumulada no ano-calendário corrente (RBA), para o painel de sublimite estadual.</summary>
+    public decimal? Rba { get; set; }
+
+    /// <summary>Sublimite de receita anual da UF do cliente, quando informado no documento.</summary>
+    public decimal? Sublimite { get; set; }
+
+    /// <summary>Empresa impedida de recolher ICMS/ISS no DAS (sublimite excedido).</summary>
+    public bool? Impedido { get; set; }
+
+    /// <summary>
+    /// Ligada quando o usuário altera um valor na conferência antes de gravar.
+    /// Usada para avisar antes de sobrescrever numa reimportação (409).
+    /// </summary>
+    public bool EditadoManualmente { get; set; }
+
+    public DateTime ImportadoEm { get; set; } = DateTime.UtcNow;
+    public Guid ImportadoPorUsuarioId { get; set; }
+
+    public ICollection<ApuracaoSegregacao> Segregacoes { get; set; } = [];
+}
+
+/// <summary>
+/// Receita segregada por categoria fiscal de uma apuração — tabela filha de
+/// verdade (a segregação é daquele mês, não tem vida própria; cascade).
+/// </summary>
+public class ApuracaoSegregacao
+{
+    public Guid ApuracaoId { get; set; }
+    public ApuracaoSimples Apuracao { get; set; } = null!;
+    public CategoriaReceita Categoria { get; set; }
+    public decimal Receita { get; set; }
+}
+
+/// <summary>
+/// Série de receita bruta mensal (seção 2.2.1 do documento), por upsert —
+/// não é filha da apuração porque o mesmo mês aparece na série de até doze
+/// documentos diferentes. O documento mais recente sobrescreve, e o gráfico
+/// de evolução de 12 meses passa a cobrir também mês cujo PDF nunca foi
+/// carregado, que é o dado que a ferramenta autônoma hoje joga fora.
+/// </summary>
+public class ReceitaMensalCliente
+{
+    public Guid EscritorioId { get; set; }
+    public Escritorio Escritorio { get; set; } = null!;
+    public Guid ClienteId { get; set; }
+    public Cliente Cliente { get; set; } = null!;
+    public string Competencia { get; set; } = string.Empty;
+    public decimal ReceitaBruta { get; set; }
+
+    /// <summary>Competência do documento de onde este valor veio — decide quem prevalece em caso de empate de data.</summary>
+    public string OrigemCompetencia { get; set; } = string.Empty;
+    public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
 }

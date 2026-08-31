@@ -27,12 +27,14 @@
 
 .btn-secondary {
   height: 38px; padding: 0 16px;
-  background: transparent; color: var(--text-secondary);
+  background: var(--surface-card); color: var(--text-secondary);
   border: 1px solid var(--border); border-radius: var(--radius-sm);
-  font-size: 13px; font-family: var(--font-family); cursor: pointer;
+  font-size: 13px; font-family: var(--font-family); cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  text-decoration: none;
   transition: all 120ms;
 }
-.btn-secondary:hover { background: var(--surface-page); }
+.btn-secondary:hover { background: var(--surface-page); border-color: var(--border-forte); }
 
 /* Botão de ícone solto numa célula de tabela (editar/excluir). */
 .btn-icon {

@@ -123,6 +123,16 @@ Duas regras sustentam isso sem pôr dado mutável no caminho de autenticação:
 Desativar uma ferramenta no catálogo só a tira do seletor de chaves novas —
 agente em campo continua autenticando.
 
+**Nem toda ferramenta tem agente.** `Produto.TemAgente` (default `true`)
+governa só a *oferta* de chave nova no seletor — nunca a autenticação, que
+segue as duas regras acima. A terceira ferramenta, **PGDAS-D** (`pgdas_…`,
+domínio Fiscal), é a primeira com `TemAgente = false`: é um assistente de
+importação dentro do próprio painel — o usuário carrega o PDF do extrato ou
+declaração do Simples Nacional, o navegador extrai e concilia os valores
+(nenhum documento sobe para a API) e o resultado vira uma apuração gravada,
+com dashboard reconstruída a qualquer momento a partir do banco. Sem binário,
+sem handshake, sem `Execucao`.
+
 **Ferramentas contratadas por escritório.** `EscritorioProdutos` liga os dois:
 sem vínculo habilitado o escritório não gera chave para a ferramenta, e os
 agentes que ele tenha dela param no handshake. Isso é gate **comercial**

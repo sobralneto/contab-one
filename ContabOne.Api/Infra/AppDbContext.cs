@@ -28,6 +28,9 @@ public class AppDbContext : IdentityDbContext<Usuario, IdentityRole<Guid>, Guid>
     public DbSet<ConfiguracaoEscritorio> ConfiguracoesEscritorio => Set<ConfiguracaoEscritorio>();
     public DbSet<Alerta> Alertas => Set<Alerta>();
     public DbSet<TourPaginaVista> TourPaginasVistas => Set<TourPaginaVista>();
+    public DbSet<ApuracaoSimples> ApuracoesSimples => Set<ApuracaoSimples>();
+    public DbSet<ApuracaoSegregacao> ApuracaoSegregacoes => Set<ApuracaoSegregacao>();
+    public DbSet<ReceitaMensalCliente> ReceitasMensaisCliente => Set<ReceitaMensalCliente>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -67,6 +70,15 @@ public class AppDbContext : IdentityDbContext<Usuario, IdentityRole<Guid>, Guid>
 
         modelBuilder.Entity<EscritorioProduto>().HasQueryFilter(ep =>
             _tenantContext.VeTodosOsEscritorios || ep.EscritorioId == _tenantContext.EscritorioId);
+
+        modelBuilder.Entity<ApuracaoSimples>().HasQueryFilter(a =>
+            _tenantContext.VeTodosOsEscritorios || a.EscritorioId == _tenantContext.EscritorioId);
+
+        modelBuilder.Entity<ApuracaoSegregacao>().HasQueryFilter(s =>
+            _tenantContext.VeTodosOsEscritorios || s.Apuracao.EscritorioId == _tenantContext.EscritorioId);
+
+        modelBuilder.Entity<ReceitaMensalCliente>().HasQueryFilter(r =>
+            _tenantContext.VeTodosOsEscritorios || r.EscritorioId == _tenantContext.EscritorioId);
 
         // ── Entity configuration ──
 
@@ -170,6 +182,44 @@ public class AppDbContext : IdentityDbContext<Usuario, IdentityRole<Guid>, Guid>
             // Cascade: usuário removido não deixa registro de tour órfão.
             e.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ApuracaoSimples>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.EscritorioId, x.ClienteId, x.Competencia }).IsUnique();
+            e.HasOne(x => x.Escritorio).WithMany().HasForeignKey(x => x.EscritorioId);
+            e.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId);
+
+            e.Property(x => x.Faturamento).HasColumnType("numeric(18,2)");
+            e.Property(x => x.Das).HasColumnType("numeric(18,2)");
+            e.Property(x => x.Irpj).HasColumnType("numeric(18,2)");
+            e.Property(x => x.Csll).HasColumnType("numeric(18,2)");
+            e.Property(x => x.Cofins).HasColumnType("numeric(18,2)");
+            e.Property(x => x.Pis).HasColumnType("numeric(18,2)");
+            e.Property(x => x.Inss).HasColumnType("numeric(18,2)");
+            e.Property(x => x.Icms).HasColumnType("numeric(18,2)");
+            e.Property(x => x.Ipi).HasColumnType("numeric(18,2)");
+            e.Property(x => x.Iss).HasColumnType("numeric(18,2)");
+            e.Property(x => x.Rba).HasColumnType("numeric(18,2)");
+            e.Property(x => x.Sublimite).HasColumnType("numeric(18,2)");
+        });
+
+        modelBuilder.Entity<ApuracaoSegregacao>(e =>
+        {
+            e.HasKey(x => new { x.ApuracaoId, x.Categoria });
+            e.Property(x => x.Receita).HasColumnType("numeric(18,2)");
+            // Cascade: a segregação é da apuração daquele mês, sem vida própria.
+            e.HasOne(x => x.Apuracao).WithMany(a => a.Segregacoes)
+             .HasForeignKey(x => x.ApuracaoId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ReceitaMensalCliente>(e =>
+        {
+            e.HasKey(x => new { x.EscritorioId, x.ClienteId, x.Competencia });
+            e.Property(x => x.ReceitaBruta).HasColumnType("numeric(18,2)");
+            e.HasOne(x => x.Escritorio).WithMany().HasForeignKey(x => x.EscritorioId);
+            e.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId);
         });
 
         // ── Indexes that matter from day 1 (§4.2) ──

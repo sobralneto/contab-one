@@ -182,6 +182,7 @@ public static class AdminEndpoints
                 p.Nome,
                 p.Descricao,
                 p.Ativo,
+                p.TemAgente,
                 p.Ordem,
                 p.CriadoEm,
                 p.Paginas,
@@ -240,6 +241,7 @@ public static class AdminEndpoints
             DominioCodigo = req.DominioCodigo,
             Paginas = (req.Paginas ?? []).Distinct().ToArray(),
             Ativo = req.Ativo ?? true,
+            TemAgente = req.TemAgente ?? true,
             Ordem = req.Ordem ?? 0,
         };
 
@@ -282,6 +284,7 @@ public static class AdminEndpoints
         produto.Nome = req.Nome.Trim();
         produto.Descricao = req.Descricao?.Trim() ?? string.Empty;
         if (req.Ativo.HasValue) produto.Ativo = req.Ativo.Value;
+        if (req.TemAgente.HasValue) produto.TemAgente = req.TemAgente.Value;
         if (req.Ordem.HasValue) produto.Ordem = req.Ordem.Value;
         if (req.DominioCodigo != null) produto.DominioCodigo = req.DominioCodigo;
         if (req.Paginas != null) produto.Paginas = req.Paginas.Distinct().ToArray();
@@ -295,6 +298,7 @@ public static class AdminEndpoints
             produto.Nome,
             produto.Descricao,
             produto.Ativo,
+            produto.TemAgente,
             produto.Ordem,
             produto.Paginas,
             produto.DominioCodigo,
@@ -710,6 +714,8 @@ public record CriarProdutoRequest
     public string DominioCodigo { get; init; } = string.Empty;
     public List<string>? Paginas { get; init; }
     public bool? Ativo { get; init; }
+    /// <summary>Ausente = <c>true</c> — a maioria das ferramentas tem agente.</summary>
+    public bool? TemAgente { get; init; }
     public int? Ordem { get; init; }
 }
 
@@ -722,6 +728,8 @@ public record AtualizarProdutoRequest
     /// <summary>Null preserva as páginas atuais — só troca quando informado.</summary>
     public List<string>? Paginas { get; init; }
     public bool? Ativo { get; init; }
+    /// <summary>Null preserva o valor atual — só troca quando informado.</summary>
+    public bool? TemAgente { get; init; }
     public int? Ordem { get; init; }
 }
 

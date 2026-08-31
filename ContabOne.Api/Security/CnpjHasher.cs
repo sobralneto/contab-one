@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -9,6 +10,10 @@ namespace ContabOne.Api.Security;
 /// </summary>
 public static class CnpjHasher
 {
+    /// <summary>Mantém só os dígitos — o que chega de formulário ou documento traz pontuação.</summary>
+    public static string Limpar(string cnpj)
+        => new(cnpj.Where(char.IsDigit).ToArray());
+
     /// <summary>
     /// HMAC-SHA256(clean_cnpj, server_secret) — stable, non-reversible.
     /// </summary>

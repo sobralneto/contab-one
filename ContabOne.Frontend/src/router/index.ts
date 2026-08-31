@@ -43,13 +43,44 @@ const routes: RouteRecordRaw[] = [
     path: "/f/:produto",
     name: "ferramenta-visao-geral",
     // O dashboard nasceu como a única tela do sistema — hoje é a visão geral
-    // de UMA ferramenta (NFS-e). Endereço novo, conteúdo intocado.
-    component: () => import("@/views/DashboardView.vue"),
+    // de UMA ferramenta (NFS-e). Endereço novo, conteúdo intocado. O PGDAS-D
+    // precisa de conteúdo próprio (apurações, não KPIs de agente) — o
+    // wrapper resolve qual componente entra, por `codigo` do produto.
+    component: () => import("@/views/FerramentaVisaoGeralView.vue"),
     meta: {
       layout: "app",
       papeis: ["PlatformAdmin", "EscritorioAdmin", "EscritorioUsuario"],
       titulo: "Visão geral",
       pagina: "visao-geral",
+    },
+  },
+  {
+    // Assistente de carga e conferência — só ferramenta sem agente declara
+    // esta página (hoje só o pgdas). Fora do menu de outras ferramentas
+    // porque nenhuma outra a declara em `Produto.Paginas`.
+    path: "/f/:produto/importacao",
+    name: "ferramenta-importacao",
+    component: () => import("@/views/pgdas/PgdasImportacaoView.vue"),
+    meta: {
+      layout: "app",
+      papeis: ["PlatformAdmin", "EscritorioAdmin", "EscritorioUsuario"],
+      titulo: "Importar extratos",
+      pagina: "importacao",
+    },
+  },
+  {
+    // Rota de DETALHE — um cliente e um intervalo, alcançada a partir de uma
+    // linha da lista. Sem `meta.pagina` de propósito: não é item de menu,
+    // mas o guard ainda valida produto existente e contratado para qualquer
+    // rota sob /f/:produto (navegacao-por-dominio, "Ferramenta pode ter rota
+    // de detalhe fora do menu").
+    path: "/f/:produto/dashboard/:clienteId",
+    name: "ferramenta-dashboard-cliente",
+    component: () => import("@/views/pgdas/PgdasDashboardView.vue"),
+    meta: {
+      layout: "app",
+      papeis: ["PlatformAdmin", "EscritorioAdmin", "EscritorioUsuario"],
+      titulo: "Dashboard do cliente",
     },
   },
   {

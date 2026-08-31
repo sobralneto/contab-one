@@ -114,10 +114,21 @@
   // raiz: a SPA não tinha "processado" a digitação/seleção anterior a
   // tempo). Ver também a confirmação de seleção em selectPerfil().
   async function typeInto(input, text, { clearMethod = 'native', charDelay = 40 } = {}) {
-    clickSequence(input);
-    input.focus();
-    await sleep(150);
-    if (document.activeElement !== input) {
+    // O foco pode não "pegar" na primeira tentativa se o painel/acordeão
+    // ainda estiver com a animação de abertura em andamento (visto ao vivo:
+    // acontece só no primeiro CNPJ da lista, logo depois de abrir o menu de
+    // representação pela primeira vez). Por isso tentamos algumas vezes com
+    // uma pequena espera entre elas antes de desistir, em vez de abortar já
+    // na primeira falha.
+    let focado = false;
+    for (let tentativa = 0; tentativa < 3 && !focado; tentativa++) {
+      if (tentativa > 0) await sleep(300);
+      clickSequence(input);
+      input.focus();
+      await sleep(150);
+      focado = document.activeElement === input;
+    }
+    if (!focado) {
       throw new Error('O foco não foi para o campo esperado antes de digitar (document.activeElement é outro elemento) — abortando para não digitar no lugar errado.');
     }
     if (clearMethod === 'execCommand') {
@@ -211,6 +222,12 @@
       if (expandBtn) {
         clickSequence(expandBtn);
         await waitFor(() => isReasonablyVisible(document.querySelector(SEL.panel), 80), { timeout: 3000 });
+        // A checagem de altura acima "pega" o painel assim que a transição de
+        // abrir o acordeão COMEÇA a crescer além de 80px, não quando ela
+        // termina — visto ao vivo causando falha de foco no campo de CNPJ
+        // logo em seguida (primeiro CNPJ da lista). Um respiro extra deixa a
+        // animação assentar antes de qualquer interação com os campos.
+        await sleep(300);
       }
     }
 
@@ -339,6 +356,46 @@
     if (!btn) throw new Error('Botão "Representar" (button.br-button) não encontrado.');
     clickEl(btn);
     return true;
+  }
+
+  // Ao clicar em "Representar" no formulário principal, o portal às vezes
+  // abre um modal extra de confirmação — visto ao vivo com pelo menos DUAS
+  // variantes de texto diferentes:
+  //   - "Você está representando o CNPJ X. Deseja trocar a representação
+  //     para o CNPJ Y?" (quando já havia outra representação ativa)
+  //   - "Você tem certeza de que deseja representar o CNPJ Y?" (quando não
+  //     havia troca, ex.: primeira representação)
+  // Por isso NÃO casamos pelo texto do corpo (variável) e sim pelo título do
+  // modal (id="altera-rep-titulo", texto "Representar"), que é igual nas
+  // duas variantes — mesma estrutura de modal já tratada em
+  // tentarRepresentarViaRecentes() (.modal-content, botão "Representar"
+  // ligado a um hCaptcha invisível). Confirmado com o usuário: clicar em
+  // "Representar" aqui é seguro. Como o botão usa hCaptcha invisível,
+  // clickSequence() é obrigatório (clickEl() simples não dispara o fluxo do
+  // widget — mesmo motivo já documentado no modal de "Recentes"). Depois de
+  // clicar, esperamos ~5s (pedido explícito do usuário) pra troca efetivar
+  // no backend antes de seguir para a geração da credencial.
+  async function tratarModalConfirmacaoTroca() {
+    const modal = await waitFor(() => {
+      const m = Array.from(document.querySelectorAll('.modal-content')).find((x) => {
+        if (!isVisible(x)) return false;
+        const titulo = x.querySelector('#altera-rep-titulo, .modal-title');
+        return titulo && textOf(titulo).trim().toLowerCase() === 'representar';
+      });
+      return m || null;
+    }, { timeout: 2500, interval: 200 });
+
+    if (!modal) return null; // não apareceu — segue o fluxo normal de detecção
+
+    const confirmar = Array.from(modal.querySelectorAll('button')).find((b) => textOf(b).trim() === 'Representar');
+    if (!confirmar) {
+      return { type: 'erro', mensagem: 'Modal de confirmação de troca de representação apareceu, mas o botão "Representar" não foi encontrado nele.' };
+    }
+    clickSequence(confirmar);
+    await sleep(5000);
+
+    if (detectCaptcha()) return { type: 'captcha' };
+    return { type: 'sucesso' };
   }
 
   // Depois de clicar em Representar, descobre o que aconteceu.
@@ -703,6 +760,7 @@
       perfil,
       index: 0,
       fase: 'representar',
+      aguardarNaHome: false,
       officeName: null,
       resultados: [], // { cnpj, clientId?, clientSecret?, erro? }
       logs: [],
@@ -774,6 +832,13 @@
     await selectPerfil(panel, perfil); // já confirma internamente que a seleção "pegou" antes de retornar
     await sleep(400);
     await clickRepresentar(panel);
+
+    // Se já havia outra representação ativa, pode aparecer um modal extra
+    // pedindo confirmação da troca (ver comentário em
+    // tratarModalConfirmacaoTroca()). Se não aparecer, segue a detecção normal.
+    const modalResultado = await tratarModalConfirmacaoTroca();
+    if (modalResultado) return modalResultado;
+
     return detectOutcome(panel, cnpjInput);
   }
 
@@ -803,6 +868,18 @@
 
     // ----- fase: trocar representação -----
     if (state.fase === 'representar') {
+      // Acabamos de voltar pra home depois de gerar uma credencial (ver fase
+      // 'ler-credencial'). Espera 40s aqui, já na home carregada, antes de
+      // mexer no próximo CNPJ — dá tempo da tela (menu do avatar, painel de
+      // representação etc.) carregar por completo, em vez de esperar ainda
+      // na tela da credencial anterior e navegar logo em seguida.
+      if (state.aguardarNaHome) {
+        state.aguardarNaHome = false;
+        await setState(state);
+        await logPersist(state, 'info', 'Aguardando 40s para a página carregar por completo antes do próximo CNPJ...');
+        await sleep(40000);
+      }
+
       await logPersist(state, 'info', `[${state.index + 1}/${state.cnpjs.length}] Trocando representação para ${cnpj}...`);
 
       let resultado;
@@ -948,6 +1025,9 @@
         await logPersist(state, 'ok', `[${cnpj}] Credencial obtida com sucesso.`);
         state.index += 1;
         state.fase = 'representar';
+        // Sinaliza pra fase 'representar' esperar a página assentar antes de
+        // mexer no próximo CNPJ (ver comentário na fase 'representar').
+        state.aguardarNaHome = true;
       }
 
       await setState(state);

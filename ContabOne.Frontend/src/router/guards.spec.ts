@@ -24,8 +24,25 @@ const NFSE_CONTRATADO: ProdutoDto = {
   nome: 'NFS-e',
   descricao: '',
   ativo: true,
+  temAgente: true,
   ordem: 1,
   paginas: ['visao-geral', 'execucoes', 'configuracao', 'regras'],
+  dominio: { codigo: 'fiscal', nome: 'Fiscal', ordem: 1, icone: null },
+  contratado: true,
+}
+
+// Ferramenta sem agente, com página de detalhe fora do menu — o cenário que
+// navegacao-por-dominio.md descreve ("Ferramenta pode ter rota de detalhe
+// fora do menu").
+const PGDAS_CONTRATADO: ProdutoDto = {
+  id: 'p-pgdas',
+  codigo: 'pgdas',
+  nome: 'PGDAS-D',
+  descricao: '',
+  ativo: true,
+  temAgente: false,
+  ordem: 3,
+  paginas: ['visao-geral', 'importacao'],
   dominio: { codigo: 'fiscal', nome: 'Fiscal', ordem: 1, icone: null },
   contratado: true,
 }
@@ -243,5 +260,53 @@ describe('router/guards — produto e página da ferramenta', () => {
     await router.push('/f/nfse/regras')
 
     expect(router.currentRoute.value.path).toBe('/f/nfse/regras')
+  })
+})
+
+describe('router/guards — rota de detalhe (pgdas)', () => {
+  it('rota de detalhe é alcançável para ferramenta contratada, mesmo sem declarar a página', async () => {
+    sessionStorage.setItem(CHAVE, tokenComPapel('EscritorioUsuario'))
+    const { listarProdutos } = await import('@/api/endpoints/produtos')
+    vi.mocked(listarProdutos).mockResolvedValue([PGDAS_CONTRATADO])
+
+    const { router } = await montarCenario()
+    await router.push('/f/pgdas/dashboard/11111111-1111-1111-1111-111111111111')
+
+    // Rota de detalhe não tem meta.pagina — o guard não a recusa por
+    // página não declarada, só valida produto existente e contratado.
+    expect(router.currentRoute.value.name).toBe('ferramenta-dashboard-cliente')
+  })
+
+  it('rota de detalhe é recusada para ferramenta não contratada', async () => {
+    sessionStorage.setItem(CHAVE, tokenComPapel('EscritorioUsuario'))
+    const { listarProdutos } = await import('@/api/endpoints/produtos')
+    vi.mocked(listarProdutos).mockResolvedValue([{ ...PGDAS_CONTRATADO, contratado: false }])
+
+    const { router } = await montarCenario()
+    await router.push('/f/pgdas/dashboard/11111111-1111-1111-1111-111111111111')
+
+    expect(router.currentRoute.value.path).toBe('/')
+  })
+
+  it('página não declarada (execucoes) pelo pgdas devolve à visão geral da ferramenta', async () => {
+    sessionStorage.setItem(CHAVE, tokenComPapel('EscritorioUsuario'))
+    const { listarProdutos } = await import('@/api/endpoints/produtos')
+    vi.mocked(listarProdutos).mockResolvedValue([PGDAS_CONTRATADO])
+
+    const { router } = await montarCenario()
+    await router.push('/f/pgdas/execucoes')
+
+    expect(router.currentRoute.value.path).toBe('/f/pgdas')
+  })
+
+  it('página importacao, que o pgdas declara, é alcançável', async () => {
+    sessionStorage.setItem(CHAVE, tokenComPapel('EscritorioUsuario'))
+    const { listarProdutos } = await import('@/api/endpoints/produtos')
+    vi.mocked(listarProdutos).mockResolvedValue([PGDAS_CONTRATADO])
+
+    const { router } = await montarCenario()
+    await router.push('/f/pgdas/importacao')
+
+    expect(router.currentRoute.value.name).toBe('ferramenta-importacao')
   })
 })

@@ -78,10 +78,14 @@ export interface ClienteDto {
 export interface ClienteRequest {
   codigo: string
   nome: string
+  /** CNPJ completo, opcional — o servidor deriva hash e máscara e descarta o valor cru. */
+  cnpj?: string
   cnpjMascarado?: string
   cnpjHash?: string
   certificadoValidade?: string
   escritorioId?: string
+  /** "Importacao" quando o cliente nasce da importação de um documento; ausente = Manual. */
+  origem?: OrigemCliente
 }
 
 export interface PaginatedResponse<T> {
@@ -181,7 +185,7 @@ export interface DominioDto {
 // vivem em rotas transversais (`/clientes`, `/agentes`). "regras" é
 // restrita a PlatformAdmin (não EscritorioAdmin) — mais estrita que as
 // outras páginas de ferramenta.
-export type PaginaFerramenta = 'visao-geral' | 'execucoes' | 'configuracao' | 'regras'
+export type PaginaFerramenta = 'visao-geral' | 'execucoes' | 'configuracao' | 'regras' | 'importacao'
 
 // ── Produtos (ferramentas do hub) ──
 
@@ -195,6 +199,8 @@ export interface ProdutoDto {
   nome: string
   descricao: string
   ativo: boolean
+  /** Governa só a OFERTA de chave de API nova — ferramenta sem agente (ex.: pgdas) some do seletor. */
+  temAgente: boolean
   ordem: number
   paginas: PaginaFerramenta[]
   dominio: DominioDto
@@ -209,6 +215,7 @@ export interface ProdutoAdminDto {
   nome: string
   descricao: string
   ativo: boolean
+  temAgente: boolean
   ordem: number
   criadoEm: string
   paginas: PaginaFerramenta[]
@@ -236,6 +243,8 @@ export interface CriarProdutoRequest {
   dominioCodigo: string
   paginas?: PaginaFerramenta[]
   ativo?: boolean
+  /** Ausente = `true` — a maioria das ferramentas tem agente. */
+  temAgente?: boolean
   ordem?: number
 }
 
@@ -247,6 +256,7 @@ export interface AtualizarProdutoRequest {
   dominioCodigo?: string
   paginas?: PaginaFerramenta[]
   ativo?: boolean
+  temAgente?: boolean
   ordem?: number
 }
 
@@ -374,10 +384,155 @@ export interface VisaoGeralDto {
   escritoriosAtivos30d: number
 }
 
+// ── PGDAS-D (apuração do Simples Nacional) ──
+
+// Os oito tributos do PGDAS-D — mesmos nomes de campo em toda a slice, do
+// parser (frontend) ao `ApuracaoSimples` (backend).
+export interface TributosPgdas {
+  irpj: number
+  csll: number
+  cofins: number
+  pis: number
+  inss: number
+  icms: number
+  ipi: number
+  iss: number
+}
+
+export type TipoDocumentoPgdas = 'Extrato' | 'Declaracao'
+
+export interface SegregacaoPgdasDto {
+  categoria: string
+  receita: number
+}
+
+// Uma linha da tabela em `GET /api/pgdas/apuracoes` (visão geral).
+export interface ApuracaoListaDto {
+  id: string
+  clienteId: string
+  clienteNome: string
+  competencia: string
+  tipoDocumento: TipoDocumentoPgdas
+  faturamento: number
+  das: number
+  semMovimento: boolean
+  vencimento: string
+  pago: boolean
+  editadoManualmente: boolean
+  rba: number | null
+  sublimite: number | null
+  /** Soma dos oito tributos x DAS (tolerância R$ 0,05) — calculado no servidor, nunca no front. */
+  naoConfere: boolean
+}
+
+// Uma competência dentro do payload de `GET /api/pgdas/clientes/{id}/dashboard`
+// — inclui os tributos e a segregação que a lista não precisa.
+export interface ApuracaoDashboardDto extends TributosPgdas {
+  id: string
+  competencia: string
+  tipoDocumento: TipoDocumentoPgdas
+  faturamento: number
+  das: number
+  semMovimento: boolean
+  vencimento: string
+  pago: boolean
+  rba: number | null
+  sublimite: number | null
+  impedido: boolean | null
+  editadoManualmente: boolean
+  segregacao: SegregacaoPgdasDto[]
+}
+
+export interface SerieMensalDto {
+  competencia: string
+  receitaBruta: number
+}
+
+export interface ClienteDashboardDto {
+  id: string
+  nome: string
+  cnpjMascarado: string
+}
+
+export interface DashboardPgdasDto {
+  cliente: ClienteDashboardDto
+  apuracoes: ApuracaoDashboardDto[]
+  serieMensal: SerieMensalDto[]
+}
+
+// Uma competência do lote conferido — o que `POST /api/pgdas/apuracoes` recebe.
+export interface ApuracaoPgdasRequest extends TributosPgdas {
+  competencia: string
+  tipoDocumento: TipoDocumentoPgdas
+  faturamento: number
+  das: number
+  semMovimento: boolean
+  vencimento: string
+  pago: boolean
+  rba?: number | null
+  sublimite?: number | null
+  impedido?: boolean | null
+  editadoManualmente: boolean
+  /** Categoria (`CategoriaReceita`) → receita do período. */
+  segregacao?: Record<string, number>
+}
+
+export interface GravarApuracoesRequest {
+  clienteId: string
+  substituir: boolean
+  /** Competência do documento carregado — decide quem prevalece no upsert da série mensal. */
+  competenciaDocumento: string
+  apuracoes: ApuracaoPgdasRequest[]
+  serieMensal?: SerieMensalDto[]
+}
+
+export interface GravarApuracoesResponse {
+  gravadas: number
+}
+
+// Corpo do 409 quando alguma competência do lote já existe.
+export interface CompetenciaConflitoDto {
+  competencia: string
+  editadoManualmente: boolean
+}
+
+export interface ConflitoApuracoesResponse {
+  erro: string
+  competencias: CompetenciaConflitoDto[]
+}
+
+export interface AtualizarApuracaoRequest {
+  pago?: boolean
+  vencimento?: string
+}
+
+export interface ResumoPgdasDto {
+  clientesComApuracao: number
+  competenciasGravadas: number
+  dasEmAberto: number
+  naoConferem: number
+}
+
+export interface IdentificarClienteRequest {
+  cnpj: string
+}
+
+export interface IdentificarClienteResponse {
+  encontrado: boolean
+  id?: string
+  codigo?: string
+  nome?: string
+  cnpjMascarado?: string
+}
+
+export interface ProximoCodigoResponse {
+  codigo: string
+}
+
 // ── Enums (match C# System.Text.Json string serialization exactly) ──
 export type StatusEscritorio = 'Ativo' | 'Inadimplente' | 'Suspenso' | 'Cancelado'
 export type StatusExecucao = 'Sucesso' | 'Parcial' | 'Falha'
 export type TipoNota = 'Recebidas' | 'Emitidas'
-export type OrigemCliente = 'Manual' | 'Agente'
+export type OrigemCliente = 'Manual' | 'Agente' | 'Importacao'
 export type TipoAlerta = 'CertificadoVencendo' | 'CertificadoVencido' | 'ExecucaoFalhou' | 'AgenteSilencioso'
 export type SeveridadeAlerta = 'Info' | 'Atencao' | 'Critico'

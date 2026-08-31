@@ -435,6 +435,7 @@ const PAGINA_META: Record<
   execucoes: { label: "Execuções" },
   configuracao: { label: "Configuração", papel: "escritorioAdmin" },
   regras: { label: "Regras de Coleta", papel: "platformAdmin" },
+  importacao: { label: "Importar extratos" },
 };
 
 function podeVerPagina(

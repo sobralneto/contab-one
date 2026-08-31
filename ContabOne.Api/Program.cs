@@ -16,6 +16,7 @@ using ContabOne.Api.Features.Alertas;
 using ContabOne.Api.Features.Auth;
 using ContabOne.Api.Features.Clientes;
 using ContabOne.Api.Features.Dashboard;
+using ContabOne.Api.Features.Pgdas;
 using ContabOne.Api.Features.Seed;
 using ContabOne.Api.Features.Tour;
 using ContabOne.Api.Features.Usuarios;
@@ -331,6 +332,12 @@ try
     app.MapGroup("/api/admin")
        .MapAdminEndpoints()
        .RequireAuthorization("PlatformAdmin");
+
+    // ── PGDAS-D endpoints — mesma exigência de autenticação humana das
+    // demais rotas de painel; ferramenta sem agente, sem grupo /api/agent ──
+    app.MapGroup("/api/pgdas")
+       .MapPgdasEndpoints()
+       .RequireAuthorization("EscritorioUsuario");
 
     app.Run();
 }
