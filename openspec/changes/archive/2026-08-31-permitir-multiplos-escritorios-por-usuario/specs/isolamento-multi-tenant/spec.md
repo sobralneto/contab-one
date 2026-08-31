@@ -1,10 +1,4 @@
-# isolamento-multi-tenant Specification
-
-## Purpose
-
-Define como a plataforma decide de qual escritório é cada linha que um pedido pode ler ou escrever, e garante que a ausência de escopo resolvido nunca seja interpretada como permissão para ver tudo.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Escopo de tenant indefinido não enxerga nada
 
