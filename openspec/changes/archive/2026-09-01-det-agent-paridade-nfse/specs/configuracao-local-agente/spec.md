@@ -1,12 +1,4 @@
-## Purpose
-
-Define o que pode e o que não pode viver em `config.toml`, o arquivo de
-configuração local de qualquer agente (`Nfse.Agent`, `Det.Agent` e os que
-vierem depois), e como a senha do certificado é resolvida — para que a
-plataforma nunca precise custodiar segredos que só fazem sentido na máquina
-do escritório.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: `config.toml` só documenta credencial de API e segredo de certificado
 

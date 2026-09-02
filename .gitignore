@@ -206,13 +206,12 @@ $RECYCLE.BIN/
 #
 # Nfse.Agent, ContabOne.Api, ContabOne.Frontend e Det.Agent são repositórios
 # git independentes (cada um com remoto próprio no GitHub) e não devem ser
-# versionados também aqui no contab-one. ContabOne.Api.Tests e Rfb.Agent
-# ainda não têm .git próprio, mas seguem a mesma regra por ora.
+# versionados também aqui no contab-one. Rfb.Agent ainda não tem .git próprio,
+# mas segue a mesma regra por ora.
 # ==========================================================================
 
 Nfse.Agent/
 ContabOne.Api/
 ContabOne.Frontend/
-ContabOne.Api.Tests/
 Det.Agent/
 Rfb.Agent/

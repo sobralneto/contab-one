@@ -24,8 +24,7 @@ de escopo.
 ```
 contab-one/
 ├── Nfse.Agent/          agente Python — mTLS, coleta, DANFSe (vira nfse.exe)
-├── ContabOne.Api/       API .NET 10 + PostgreSQL — licenciamento, métricas, multi-tenant
-├── ContabOne.Api.Tests/ suíte xUnit da API (Testcontainers)
+├── ContabOne.Api/       API .NET 10 + PostgreSQL (suíte xUnit em tests/) — licenciamento, métricas, multi-tenant
 ├── ContabOne.Frontend/  painel Vue 3 + TypeScript + Vite
 ├── docker-compose.yml   Postgres local (postgres:18-alpine)
 ├── openspec/            specs e histórico de mudanças (fluxo OpenSpec)
@@ -232,7 +231,7 @@ verdade e exercitam a stack inteira.
 
 | Camada | Suíte | Comando | Pré-requisito |
 |---|---|---|---|
-| API (.NET) | `ContabOne.Api.Tests` (xUnit) | `dotnet test` na raiz | Docker (só os `Category=Banco`) |
+| API (.NET) | `ContabOne.Api/tests/` (xUnit) | `dotnet test` na raiz | Docker (só os `Category=Banco`) |
 | Agente (Python) | `Nfse.Agent/testes/` | `py -3.14 testes/executar_tudo.py` | `requirements.txt` instalado |
 | Frontend — rápida | Vitest, `src/**/*.spec.ts` | `npm test` | nada no ar |
 | Frontend — E2E | Playwright, `ContabOne.Frontend/e2e/` | `npm run test:e2e` | Postgres + API + navegador |
