@@ -92,12 +92,22 @@ EF Core 10 + Npgsql, multi-tenant por *global query filter*.
 
 Grupos de rota: `/api/auth`, `/api/agent`, `/api/dashboard`, `/api/clientes`,
 `/api/execucoes`, `/api/alertas`, `/api/configuracao`, `/api/agentes`,
-`/api/admin`, mais `/health` (anônimo) e `/api/seed` (**só em Development**).
-Há também um modo cron: `dotnet ContabOne.Api.dll --job=alertas`.
+`/api/onboarding`, `/api/tarefas`, `/api/admin`, mais `/health` (anônimo) e
+`/api/seed` (**só em Development**). Há também um modo cron:
+`dotnet ContabOne.Api.dll --job=alertas`.
 
 Entidades principais: `Escritorio`, `Plano`, `Usuario`, `Agente`, `Cliente`,
 `Execucao`, `ExecucaoMetrica`, `RegraColeta`, `ConfiguracaoEscritorio`,
-`Alerta`.
+`Alerta`, `Tarefa`.
+
+**`Tarefa` é a exceção ao escopo de tenant.** Todas as demais entidades são
+visíveis a quem pertence ao escritório; a tarefa é visível apenas a quem
+**participa dela** — é responsável ou foi quem a criou. Isso vale inclusive
+para `EscritorioAdmin` e para `PlatformAdmin` sem foco. O *global query filter*
+resolve só o escritório; o recorte por participação é aplicado por cima, em
+todo handler de leitura de `Features/Tarefas` (`TarefasEndpoints.PodeVer`).
+Consulta nova sobre `Tarefa` que esqueça esse predicado vaza a lista pessoal
+de um usuário para os colegas.
 
 **Chave de API por ferramenta.** O formato é `<codigo>_<prefixo8>_<segredo32>`
 — hoje `nfse_…` (coleta de NFS-e) e `det_…`. O primeiro campo não participa da
@@ -169,6 +179,14 @@ Documento de projeto: [PLANO_SAAS_API.md](PLANO_SAAS_API.md).
 Interface do escritório e da plataforma: dashboard com KPIs e gráficos, gestão
 de clientes, agentes, execuções, alertas, configuração e as telas de admin
 (escritórios, planos, regras de coleta).
+
+A página inicial (o *hub*) é montada em três colunas: ferramentas agrupadas por
+domínio, certificados a vencer/vencidos e as tarefas do dia. Cada coluna carrega
+e falha por conta própria.
+
+Rotas **transversais** — fora da família `/f/:produto`, porque não pertencem a
+nenhuma ferramenta e não passam por gate comercial: `/clientes`, `/agentes`,
+`/usuarios`, `/onboarding/modelos` e `/tarefas`.
 
 Vue 3 com `<script setup>` + TypeScript + Vite; Pinia para sessão, Vue Router
 com guards por papel, PrimeVue 4 (preset Nora) + Tailwind, Chart.js para os
