@@ -31,6 +31,12 @@ Como o título do cartão já identifica o assunto, cada contagem DEVE (MUST) se
 rotulada apenas pela faixa que representa, sem repetir o substantivo
 "certificados" em cada uma.
 
+Cada contagem DEVE (MUST) levar à listagem de clientes com a faixa
+correspondente já aplicada, e o conjunto aberto DEVE (MUST) ser exatamente o que
+a contagem somou — contagem que abre uma lista de outro tamanho é pior do que
+contagem sem link, porque o usuário não tem como saber qual dos dois números
+vale.
+
 Cada contagem DEVE (MUST) ser distinguível das outras à primeira vista, e as
 três DEVEM (MUST) ser exibidas mesmo valendo zero — o zero é a confirmação de
 que não há pendência, e ocultar o contador deixaria o usuário sem saber se não
@@ -81,6 +87,18 @@ DEVEM (MUST) quebrar em mais de uma linha dentro do próprio cartão.
 - **WHEN** um usuário sem certificado vencido ou a vencer abre a página inicial
 - **THEN** o cartão de certificados aparece com as três contagens em zero, e o
   restante do painel é exibido normalmente
+
+#### Scenario: Abrir a listagem a partir de uma contagem
+
+- **WHEN** o usuário aciona uma das três contagens do cartão de certificados
+- **THEN** a listagem de clientes abre com aquela faixa aplicada, e a quantidade
+  de clientes listados corresponde ao número que estava no cartão
+
+#### Scenario: Contagem em zero
+
+- **WHEN** o usuário aciona uma contagem que está em zero
+- **THEN** a listagem abre com a faixa aplicada e apresenta o estado vazio, sem
+  erro
 
 #### Scenario: Certificado fora do horizonte
 
