@@ -27,14 +27,15 @@ ordem — e não uma lista fixa no código da API ou do frontend.
 ### Requirement: A ordem de exibição vem do catálogo
 
 O sistema DEVE (MUST) ordenar a apresentação por ordem do domínio e, dentro
-do domínio, por ordem da ferramenta, com o nome como desempate. A ordem é a
-mesma no menu lateral e na página inicial.
+do domínio, por ordem da ferramenta, com o nome como desempate. A ordem vale
+para o menu lateral, que é onde as ferramentas são apresentadas agrupadas por
+domínio — a página inicial deixou de apresentar ferramentas.
 
 #### Scenario: Duas ferramentas no mesmo domínio
 
 - **WHEN** duas ferramentas do mesmo domínio têm ordens diferentes
-- **THEN** ambas aparecem sob o mesmo título de domínio, na ordem declarada
-  no catálogo, tanto no menu quanto na página inicial
+- **THEN** ambas aparecem no menu lateral sob o mesmo título de domínio, na
+  ordem declarada no catálogo
 
 ### Requirement: Cada ferramenta declara as páginas que possui
 
@@ -121,7 +122,7 @@ próprio agente, sem consultar o catálogo.
 
 - **WHEN** o admin da plataforma cadastra ou edita uma ferramenta indicando
   que ela não tem agente
-- **THEN** a ferramenta continua aparecendo normalmente no menu e no hub para
+- **THEN** a ferramenta continua aparecendo normalmente no menu lateral para
   quem a contratou, e some apenas do seletor de chaves
 
 #### Scenario: Agente em campo de ferramenta marcada sem agente

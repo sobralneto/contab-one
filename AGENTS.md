@@ -228,6 +228,17 @@ no binary, no handshake, no `Execucao`.
   (design tokens in `tokens.css`). Use the shared classes — e.g. `.col-actions`
   for an action column — instead of per-view CSS, and never put `display:flex`
   on a `<td>`.
+- **Panel cards use `.card-painel`.** Every card on the hub or a dashboard —
+  header, title, optional icon, optional count badge — is built from the
+  `.card-painel*` family in `components.css`, modeled on `TarefasDoDia.vue`.
+  Never re-declare the chrome (background/border/radius/padding/shadow, title
+  size and weight) in a component's scoped CSS: that is exactly how the panel
+  ended up with seven cards carrying five paddings, two radii and two title
+  sizes, visible side by side on the same screen. What is specific to the card
+  — its list, its chart, its progress bar — stays scoped; what is chrome does
+  not. Layout spacing around a card (e.g. `margin-bottom`) is not chrome and may
+  be overridden scoped, with a comment saying so. `KpiCard.vue` is deliberately
+  outside this family: it is a stat tile, not a panel card.
 - MSW runs with `onUnhandledRequest: 'error'` (`src/testes/setup.ts`): an
   unmocked request fails the test.
 - `npm install` may need `--legacy-peer-deps` (`@vee-validate/zod` wants zod@^3,
