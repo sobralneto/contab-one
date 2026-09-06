@@ -150,6 +150,17 @@ cliente/tipo/competência; and the PGDAS-D importer parses the PDF **in the
 browser** (`ContabOne.Frontend/src/features/pgdas/parser/`, pdfjs-dist) and POSTs
 only the extracted numbers.
 
+**The one deliberate exception: `ArquivoEscritorio`.** The "Arquivos" feature
+(`/arquivos`, `Features/Arquivos/`) stores the office's own *administrative*
+documents — contrato social, procuração, alvará — in object storage (Railway
+Bucket, S3-compatible), outside Postgres. This is a narrow, human-gated
+exception: the file is uploaded **by hand by a human** who chose to send it;
+nothing is collected by an agent and nothing is automatic. The boundary is kept
+by a **closed list of formats** (`ValidadorArquivo.cs`) — `.pfx`/`.p12` and any
+fiscal XML/PDF are barred by extension *and* binary signature. Before widening
+that list (e.g. "just accept XML too"), re-read the proposal for this change:
+the list, not the architecture, is now what closes the door.
+
 ### Multi-tenancy is enforced in one place
 
 `Infra/TenantContext.cs` is populated by `TenantContextMiddleware` from JWT

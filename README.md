@@ -169,6 +169,15 @@ Variáveis de ambiente obrigatórias (ver [`.env.example`](ContabOne.Api/.env.ex
 | `JWT_SIGNING_KEY` | assinatura dos tokens dos usuários |
 | `HMAC_CNPJ_KEY` | ⚠️ **permanente** — trocar invalida todo `CnpjHash` gravado e duplica os clientes. A API se recusa a subir sem ela, de propósito |
 | `CORS_ORIGINS` | só em produção (em Development qualquer `localhost` passa) |
+| `ARQUIVOS_BUCKET`, `ARQUIVOS_ENDPOINT`, `ARQUIVOS_REGION`, `ARQUIVOS_ACCESS_KEY_ID`, `ARQUIVOS_SECRET_ACCESS_KEY` | opcionais — credenciais do Railway Bucket para os **arquivos do escritório**. Sem elas a API sobe e os endpoints de arquivo respondem 503. No Railway, configure como *variable references* para o bucket |
+
+A funcionalidade **Arquivos** guarda documentos administrativos do escritório
+(contrato social, procuração, alvará…) em armazenamento de objetos — fora do
+Postgres —, com upload pela API (que valida extensão, conteúdo e tamanho) e
+download por URL assinada de curta duração. É a exceção **estreita e deliberada**
+à regra de privacidade: entra aqui apenas o que um humano enviou à mão; o
+certificado digital e o conteúdo fiscal continuam fora, barrados pela lista
+fechada de formatos (`.pfx`/`.p12` nunca passam).
 
 Documento de projeto: [PLANO_SAAS_API.md](PLANO_SAAS_API.md).
 
@@ -186,7 +195,7 @@ e falha por conta própria.
 
 Rotas **transversais** — fora da família `/f/:produto`, porque não pertencem a
 nenhuma ferramenta e não passam por gate comercial: `/clientes`, `/agentes`,
-`/usuarios`, `/onboarding/modelos` e `/tarefas`.
+`/usuarios`, `/onboarding/modelos`, `/tarefas` e `/arquivos`.
 
 Vue 3 com `<script setup>` + TypeScript + Vite; Pinia para sessão, Vue Router
 com guards por papel, PrimeVue 4 (preset Nora) + Tailwind, Chart.js para os
