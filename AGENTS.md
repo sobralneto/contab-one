@@ -70,7 +70,33 @@ run it after non-trivial frontend edits. API listens on http://localhost:5139
 
 ### Tests
 
-There is no single runner across the three ecosystems. From the repo root:
+**Default: run only what the change touched.** The full suite is ~309 xUnit
+tests (minutes, because of Testcontainers), 27 Vitest files and two Python
+suites — running all of it after every edit is the slow default this repo
+deliberately moved away from. From the repo root:
+
+```bash
+npm test
+```
+
+That is `node scripts/testes-afetados.mjs`: it asks each sub-repo what changed
+and runs only the affected suites (see [scripts/testes-afetados.mjs](scripts/testes-afetados.mjs)
+for how the mapping is derived). Preview the plan without running anything:
+
+```bash
+npm run test:listar
+```
+
+```bash
+npm run test:tudo
+```
+
+The rule for a coding agent: `npm test` while iterating; `npm run test:tudo`
+once before handing the work over, committing or opening a PR. If the selective
+runner cannot classify a changed file, it falls back to the full suite of that
+layer on purpose — a false green is worse than a slow run.
+
+The commands behind it, when you want one layer by hand:
 
 ```bash
 dotnet test
@@ -112,7 +138,14 @@ npm --prefix ContabOne.Frontend run test:e2e
   **without** the dependencies installed.
 - Vitest needs nothing running. Playwright E2E needs Postgres + API up and runs
   serial (`workers: 1`) — the API's auth rate limiter turns parallel logins into
-  flakes.
+  flakes. The selective runner never launches Playwright; it only warns when an
+  E2E spec changed.
+- **This is not one git repository.** `ContabOne.Api/`, `ContabOne.Frontend/`,
+  `Nfse.Agent/` and `Det.Agent/` are independent repos with their own remotes,
+  ignored by the root repo (`.gitignore`, section 6). Anything that asks git
+  "what changed?" — the selective runner, `vitest --changed`, a diff for review
+  — has to ask *each* repo, from inside it. Asked at the root, git honestly
+  answers "nothing", for the entire codebase.
 
 ### Migrations
 

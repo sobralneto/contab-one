@@ -264,6 +264,52 @@ verdade e exercitam a stack inteira.
 | Frontend — E2E | Playwright, `ContabOne.Frontend/e2e/` | `npm run test:e2e` | Postgres + API + navegador |
 | Frontend — telas de regras | Playwright, `ContabOne.Frontend/testes-ui/` | `npx playwright test` | Postgres + API + Vite |
 
+### Só o que foi afetado — `npm test` na raiz
+
+Rodar as três suítes inteiras a cada edição custa minutos (a suíte da API sobe
+um Postgres efêmero). Na raiz, `npm test` roda **só as suítes afetadas pelo que
+você mexeu**:
+
+```bash
+npm test
+```
+
+```bash
+npm run test:listar
+```
+
+```bash
+npm run test:tudo
+```
+
+- `npm test` → [scripts/testes-afetados.mjs](scripts/testes-afetados.mjs).
+  `test:listar` mostra o plano sem executar nada; `test:tudo` é a suíte
+  completa dos quatro projetos — use antes de commitar/abrir PR.
+- `--base <ref>` (ex.: `node scripts/testes-afetados.mjs --base main`) soma o
+  que já foi commitado na branch às mudanças do working tree.
+- Como cada camada é reduzida:
+  - **Frontend**: `vitest run --changed`, ou seja, o grafo de módulos do
+    próprio Vitest. Mexeu em `ClientesView.vue` → roda `ClientesView.spec.ts`.
+  - **API**: mapa derivado do código, não escrito à mão — o `MapGroup("/api/x")`
+    do `Program.cs` liga o arquivo da feature às rotas, e as rotas ligam aos
+    testes que as chamam; mais o nome do arquivo (`ValidadorArquivo.cs` →
+    `ValidadorArquivoTest`) e as ligações de contrato com o Python
+    (`CnpjHasher.cs` → `HashersTest`, e vice-versa pelas fixtures).
+  - **Agentes Python**: mapa por `import` — `regras.py` → os `teste_*.py` que
+    importam `regras`.
+- Mexer em algo compartilhado (`Program.cs`, `Infra/`, `Domain/Entities.cs`,
+  `Migrations/`, `tests/TestSupport/`, `_harness.py`, `_fake_api.py`, fixtures)
+  roda a suíte completa daquela camada **de propósito** — é justamente o que
+  invalida qualquer seleção. Arquivo que o mapa não souber classificar também
+  cai na suíte completa: verde falso é pior do que suíte lenta.
+- Playwright nunca entra: precisa da stack no ar. O runner só avisa quando um
+  spec de E2E mudou.
+
+> ⚠️ Isto **não é um repositório só**. `ContabOne.Api/`, `ContabOne.Frontend/`,
+> `Nfse.Agent/` e `Det.Agent/` são repos git independentes, ignorados pelo repo
+> da raiz. O runner pergunta "o que mudou?" a cada um deles separadamente —
+> perguntar só na raiz devolveria "nada" para todo o código.
+
 ### API — `dotnet test`
 
 Rode na **raiz** do repositório (a solution `ContabOne.slnx` já aponta
@@ -411,6 +457,43 @@ dotnet test && py -3.14 Nfse.Agent/testes/executar_tudo.py && npm --prefix front
 Isso cobre a API completa, o agente e a suíte rápida do frontend (~1 min no
 total, com Docker no ar). As duas suítes Playwright ficam de fora de propósito:
 exigem a stack levantada e escrevem no banco de desenvolvimento.
+
+---
+
+## CI/CD (GitHub Actions)
+
+`ContabOne.Api` e `ContabOne.Frontend` são **repositórios próprios** no GitHub
+(aqui eles aparecem como pastas ignoradas — ver seção 6 do `.gitignore`), então
+cada um tem o seu `.github/workflows/ci-cd.yml`. Não há workflow neste
+repositório-guarda-chuva.
+
+| Repositório | `testes` | `e2e` | `deploy` |
+|---|---|---|---|
+| `ContabOne.Api` | push na `main` + PR — `dotnet test` completo, Testcontainers inclusive | — | push na `main`, depois do `testes` |
+| `ContabOne.Frontend` | push na `main` + PR — `vue-tsc` + `vite build` + vitest | só em PR para a `main` — stack real | push na `main`, depois do `testes` |
+
+O deploy é `railway up --ci` com um *Project Token*, rodando da raiz do
+repositório — o mesmo contexto de build que a integração GitHub do Railway
+enviava, para nenhuma configuração de serviço precisar mudar. O `--ci` faz a
+CLI sair com código de erro quando o build do Railway falha; com `--detach` o
+job ficaria verde em cima de um build quebrado.
+
+> **O auto-deploy da integração GitHub precisa estar desligado nos dois
+> serviços do Railway.** Ligado, cada push dispara dois builds — um pelo
+> Railway sem esperar os testes, outro pelo workflow — e o gate que justifica
+> este arranjo deixa de existir.
+
+Duas dependências entre repositórios, que os workflows resolvem com um segundo
+`actions/checkout` autenticado por um PAT (`TOKEN_LEITURA_REPOS`):
+
+- **API → `Nfse.Agent`**: `HashersTest` e `BundleCorpusTest` procuram
+  `Nfse.Agent/testes/fixtures` subindo diretórios a partir do CWD. São os dois
+  guardas de paridade C#↔Python — sem o checkout eles falhariam em CI
+  exatamente onde deveriam proteger o contrato.
+- **Frontend → API**: o E2E precisa da API no ar, e o código dela está no
+  outro repositório.
+
+Secrets e variáveis exigidos estão listados no cabeçalho de cada workflow.
 
 ---
 

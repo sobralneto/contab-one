@@ -7,7 +7,10 @@
     "dev:api": "dotnet run --project ContabOne.Api",
     "dev:front": "npm --prefix ContabOne.Frontend run dev",
     "db:up": "docker compose up -d --wait postgres",
-    "db:down": "docker compose down"
+    "db:down": "docker compose down",
+    "test": "node scripts/testes-afetados.mjs",
+    "test:listar": "node scripts/testes-afetados.mjs --listar",
+    "test:tudo": "node scripts/testes-afetados.mjs --tudo"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
