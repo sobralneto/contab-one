@@ -262,6 +262,13 @@ no binary, no handshake, no `Execucao`.
 
 ### Frontend cross-cutting bits
 
+**Read [`ContabOne.Frontend/.claude/contab-one-design-system-claude.md`](ContabOne.Frontend/.claude/contab-one-design-system-claude.md)
+before building or restyling any screen.** It is the design system: brand
+palette, type scale, the shared component classes, the KPI tints, the icon set
+and the screen patterns. It describes what `tokens.css`/`components.css` already
+implement — when doc and CSS disagree, **the CSS wins** and the doc is the file
+that gets corrected. The bullets below are only the traps that bite hardest.
+
 - `src/api/client.ts` — axios with a 401 → refresh → retry interceptor and a
   queue for concurrent failures. `refreshAccessToken()` deliberately uses a raw
   axios instance; routing it through `apiClient` would make a failing refresh
@@ -272,6 +279,16 @@ no binary, no handshake, no `Execucao`.
   (design tokens in `tokens.css`). Use the shared classes — e.g. `.col-actions`
   for an action column — instead of per-view CSS, and never put `display:flex`
   on a `<td>`.
+- **Icons come from `lucide-vue-next`, never from an inline `<svg>`.**
+  `import { Plus } from 'lucide-vue-next'` and `<Plus :size="16" />`. A
+  decorative icon next to text takes `aria-hidden="true"`; an icon that is a
+  button's only content does not — there the *button* carries the `aria-label`
+  or `title`, and hiding the icon would leave it nameless.
+- **Colour never appears as a literal in a component.** Every colour is a token
+  from `tokens.css`, which is what makes dark mode a token swap instead of a
+  second stylesheet. The KPI tints (`--kpi-*`) are one family in six colours; the
+  older `--grad-erro`/`--grad-atencao`/`--grad-alerta` are aliases onto it, so
+  there is one colour behind both names.
 - **Panel cards use `.card-painel`.** Every card on the hub or a dashboard —
   header, title, optional icon, optional count badge — is built from the
   `.card-painel*` family in `components.css`, modeled on `TarefasDoDia.vue`.
@@ -286,7 +303,10 @@ no binary, no handshake, no `Execucao`.
 - MSW runs with `onUnhandledRequest: 'error'` (`src/testes/setup.ts`): an
   unmocked request fails the test.
 - `npm install` may need `--legacy-peer-deps` (`@vee-validate/zod` wants zod@^3,
-  the project is on zod@^4).
+  the project is on zod@^4). **Do not pass it when adding a package**, though:
+  npm then skips peer dependencies and silently prunes `@testing-library/dom`,
+  which takes the whole Vitest suite down with
+  `Cannot find package '@testing-library/dom'`.
 
 ### Contracts shared between C# and Python
 
