@@ -87,14 +87,14 @@ for how the mapping is derived). Preview the plan without running anything:
 npm run test:listar
 ```
 
-```bash
-npm run test:tudo
-```
-
-The rule for a coding agent: `npm test` while iterating; `npm run test:tudo`
-once before handing the work over, committing or opening a PR. If the selective
-runner cannot classify a changed file, it falls back to the full suite of that
-layer on purpose — a false green is worse than a slow run.
+The rule for a coding agent: `npm test`, always — before committing or opening
+a PR too, not just while iterating. If the selective runner cannot classify a
+changed file, it falls back to the full suite of that layer on purpose — a
+false green is worse than a slow run. `npm run test:tudo` exists (forces every
+layer's full suite, Python agents included, regardless of what changed) but
+isn't part of the normal workflow: it runs Python suites even when
+`Nfse.Agent/`/`Det.Agent/` weren't touched, so reach for it only when you
+specifically need a full cross-layer run.
 
 The commands behind it, when you want one layer by hand:
 
