@@ -18,8 +18,7 @@ tarefas, e cada grupo as próprias tarefas — um grupo pertence a exatamente um
 modelo.
 
 Um grupo tem nome, título, descrição e ordenação. Uma tarefa pertence a exatamente
-um grupo e tem nome, ordenação, link da página do portal ou sistema, e indicação
-de que esse site exige segundo fator de autenticação.
+um grupo e tem nome, ordenação e link da página do portal ou sistema.
 
 #### Scenario: Listagem de modelos
 
@@ -278,16 +277,47 @@ recarga da página.
 - **WHEN** uma tarefa está com status concluído
 - **THEN** o título dela é apresentado riscado, distinguindo-a das abertas
 
-### Requirement: Tarefa exibe link e indicação de segundo fator
+### Requirement: A tela de onboarding do cliente avisa quando o cliente tem 2FA habilitado
 
-A página DEVE (MUST) apresentar, em cada tarefa que tenha link cadastrado, o acesso
-à página correspondente, e DEVE (MUST) sinalizar visualmente a tarefa cujo site
-exige segundo fator de autenticação.
+A página de onboarding de um cliente DEVE (MUST) exibir, logo acima do
+primeiro grupo de tarefas, um aviso com o texto "Cliente possui 2FA habilitado
+para acesso ao site do GOV.br" quando o cadastro do cliente tiver a flag de
+2FA marcada. Quando a flag não estiver marcada, o aviso NÃO DEVE (MUST NOT)
+aparecer.
 
-#### Scenario: Tarefa com link e 2FA
+O aviso é fixo e não editável a partir da própria tela de onboarding — ele
+reflete a flag do cadastro do cliente; para mudar o aviso, o usuário precisa
+editar o cadastro do cliente.
 
-- **WHEN** uma tarefa tem link cadastrado e está marcada como site com 2FA
-- **THEN** a tarefa apresenta o acesso ao link e a indicação de segundo fator
+#### Scenario: Cliente com 2FA habilitado
+
+- **WHEN** o usuário abre a página de onboarding de um cliente cujo cadastro
+  tem a flag de 2FA marcada
+- **THEN** o aviso "Cliente possui 2FA habilitado para acesso ao site do
+  GOV.br" aparece acima do primeiro grupo de tarefas
+
+#### Scenario: Cliente sem 2FA habilitado
+
+- **WHEN** o usuário abre a página de onboarding de um cliente cujo cadastro
+  não tem a flag de 2FA marcada
+- **THEN** nenhum aviso de 2FA aparece na página
+
+#### Scenario: Cliente sem checklist criado
+
+- **WHEN** o usuário abre a página de onboarding de um cliente com 2FA
+  habilitado, mas ainda sem checklist criado
+- **THEN** o aviso de 2FA aparece do mesmo jeito, independente de o checklist
+  já existir
+
+### Requirement: Tarefa exibe link cadastrado
+
+A página DEVE (MUST) apresentar, em cada tarefa que tenha link cadastrado, o
+acesso à página correspondente.
+
+#### Scenario: Tarefa com link
+
+- **WHEN** uma tarefa tem link cadastrado
+- **THEN** a tarefa apresenta o acesso ao link
 
 #### Scenario: Tarefa sem link
 
@@ -516,9 +546,8 @@ DEVE (MUST NOT) alterar o documento exportado — quem imprime o checklist quer 
 checklist, não o recorte que estava visível.
 
 Cada tarefa DEVE (MUST) aparecer no PDF com o nome, o status (aberta ou
-concluída), a indicação de segundo fator quando o site exigir, o link quando
-houver, os responsáveis atribuídos e a observação escrita para aquele cliente.
-Tarefa concluída DEVE (MUST) trazer também o momento da conclusão e quem
+concluída), o link quando houver, os responsáveis atribuídos e a observação
+escrita para aquele cliente. Tarefa concluída DEVE (MUST) trazer também o momento da conclusão e quem
 concluiu, quando esses dados existirem. Cada grupo DEVE (MUST) trazer o próprio
 título e quantas das suas tarefas estão concluídas.
 
@@ -537,11 +566,11 @@ checklist que o usuário está vendo.
 - **WHEN** o usuário recolhe um grupo e em seguida exporta o checklist
 - **THEN** o PDF contém aquele grupo e todas as tarefas dele
 
-#### Scenario: Tarefa com link, 2FA, responsáveis e observação
+#### Scenario: Tarefa com link, responsáveis e observação
 
-- **WHEN** uma tarefa tem link cadastrado, exige segundo fator, tem responsáveis
-  atribuídos e uma observação escrita
-- **THEN** o PDF apresenta os quatro dados junto do nome da tarefa
+- **WHEN** uma tarefa tem link cadastrado, tem responsáveis atribuídos e uma
+  observação escrita
+- **THEN** o PDF apresenta os três dados junto do nome da tarefa
 
 #### Scenario: Tarefa concluída
 
