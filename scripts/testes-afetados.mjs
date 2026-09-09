@@ -434,12 +434,26 @@ console.log('')
 
 if (opcoes.listar) process.exit(0)
 
+/**
+ * Roda um comando. No Windows, `.cmd`/`.bat` (npm.cmd) não podem ser
+ * spawnados direto — o Node devolve EINVAL — então passam pelo cmd.exe.
+ */
+function rodar(comando, args, cwd) {
+  if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(comando)) {
+    return spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', [comando, ...args].join(' ')], {
+      cwd,
+      stdio: 'inherit',
+    })
+  }
+  return spawnSync(comando, args, { cwd, stdio: 'inherit' })
+}
+
 let falhou = false
 const resumo = []
 for (const p of planejados) {
   console.log(`${'='.repeat(70)}\n${p.nome}\n${'='.repeat(70)}`)
   const inicio = Date.now()
-  const r = spawnSync(p.comando, p.args, { cwd: p.cwd, stdio: 'inherit' })
+  const r = rodar(p.comando, p.args, p.cwd)
   const ok = r.status === 0
   resumo.push([p.nome, ok, (Date.now() - inicio) / 1000])
   falhou = falhou || !ok
