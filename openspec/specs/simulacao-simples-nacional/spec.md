@@ -154,19 +154,31 @@ A identificação titula a simulação; ela não cria, altera ou consulta client
 - **THEN** a simulação é calculada do mesmo modo, e nada é exigido para
   prosseguir
 
-### Requirement: A seleção do anexo define a tabela do cálculo
+### Requirement: A seleção do anexo define a tabela do cálculo, sobre uma única série de faturamento
 
 A página DEVE (MUST) oferecer a seleção de um Anexo do Simples Nacional (I a
 V), com um selecionado por vez, e DEVE (MUST) apresentar, para o anexo
-selecionado, a descrição que o identifica. Trocar o anexo DEVE (MUST) refazer
-o cálculo com a tabela do novo anexo, preservando os valores de faturamento já
-digitados.
+selecionado, a descrição que o identifica. O faturamento dos 12 meses É (IS)
+uma série ÚNICA da simulação — vinculada ao nome/CNPJ informados, não ao
+anexo escolhido. Trocar o anexo DEVE (MUST) apenas refazer o cálculo com a
+tabela do novo anexo sobre essa mesma série; NÃO DEVE (MUST NOT) zerar,
+duplicar ou manter séries de faturamento separadas por anexo. (Uma primeira
+versão guardava um array de faturamento por anexo, o que fazia os valores
+digitados "sumirem" ao trocar de anexo, como se pertencessem a ele em vez de
+à empresa simulada — corrigido no uso real.)
 
 #### Scenario: Troca de anexo
 
-- **WHEN** o usuário tem faturamento preenchido num anexo e seleciona outro
+- **WHEN** o usuário tem faturamento preenchido e seleciona outro anexo
 - **THEN** o cálculo e o resultado passam a usar a tabela do novo anexo, e os
-  valores de faturamento digitados permanecem nos meses em que estavam
+  12 valores de faturamento digitados permanecem exatamente os mesmos
+
+#### Scenario: Ida e volta entre anexos não altera o faturamento
+
+- **WHEN** o usuário preenche faturamento, troca de anexo e volta ao anexo
+  original
+- **THEN** os 12 valores de faturamento são os mesmos em qualquer anexo
+  selecionado — nunca uma série separada por anexo
 
 #### Scenario: Anexo selecionado é visível
 
