@@ -1014,9 +1014,9 @@ quem a vê. Quem exporta deve reconhecer no arquivo a lista que estava
 olhando — arquivo que pede tradução mental não é exportação, é segunda tela.
 
 O CNPJ DEVE (MUST) aparecer no arquivo exatamente como a tabela o exibe:
-mascarado. O arquivo viaja — e-mail, pasta compartilhada, mesa do cliente —
-e NÃO DEVE (MUST NOT) carregar nem o CNPJ completo nem o hash de
-identificação; o que não está na tela não entra no arquivo.
+completo e formatado quando o cliente o tem, e mascarado quando não tem. O
+arquivo NÃO DEVE (MUST NOT) carregar o hash de identificação; o que não está
+na tela não entra no arquivo.
 
 Ausência de valor — regime não informado, certificado não registrado — DEVE
 (MUST) sair como célula vazia, e NÃO DEVE (MUST NOT) sair como "—": o
@@ -1027,11 +1027,16 @@ entende como ausência.
 Os valores DEVEM (MUST) sair com os rótulos que a tela usa: regime por
 extenso, 2FA como "Sim" ou "Não".
 
-#### Scenario: CNPJ mascarado
+#### Scenario: CNPJ completo
 
-- **WHEN** o arquivo exportado contém um cliente com CNPJ registrado
-- **THEN** a célula de CNPJ traz a forma mascarada, igual à da tabela, e nem
-  o CNPJ completo nem o hash aparecem em qualquer coluna
+- **WHEN** o arquivo exportado contém um cliente com CNPJ completo gravado
+- **THEN** a célula de CNPJ traz o CNPJ completo formatado, igual à tabela, e
+  o hash não aparece em nenhuma coluna
+
+#### Scenario: Cliente sem CNPJ completo
+
+- **WHEN** o arquivo exportado contém um cliente que só tem hash e máscara
+- **THEN** a célula de CNPJ traz a forma mascarada, igual à da tabela
 
 #### Scenario: Coluna de escritório para o admin
 
@@ -1214,7 +1219,7 @@ DEVE (MUST) levar de volta à primeira página.
 
 - **WHEN** o usuário digita um termo de busca com "Inativos" selecionado
 - **THEN** a listagem exibe apenas os clientes inativos cujo nome, código ou
-  CNPJ mascarado atendem ao termo
+  CNPJ atendem ao termo
 
 #### Scenario: Situação disponível para o administrador
 
@@ -1360,10 +1365,9 @@ precedência da sincronização, não a trava da tela.
 ### Requirement: O CNPJ completo é guardado legível no banco
 
 O sistema DEVE (MUST) persistir o CNPJ completo do cliente em texto legível
-(somente os 14 dígitos), sem cifrá-lo. O CNPJ completo NÃO DEVE (MUST NOT)
-aparecer em listagem, busca, detalhe ou exportação CSV de clientes: essas
-superfícies continuam expondo só a máscara e a indicação de que há CNPJ
-completo.
+(somente os 14 dígitos), sem cifrá-lo. Onde o CNPJ do cliente é exibido —
+listagem, detalhe, busca, exportação CSV —, vale o CNPJ completo, e não a
+máscara (ver "O CNPJ completo é o que a plataforma exibe e busca").
 
 Os CNPJs que já estavam guardados cifrados DEVEM (MUST) ser migrados para a
 forma legível sem perda, e a migração DEVE (MUST) poder rodar mais de uma vez
@@ -1386,7 +1390,36 @@ sem efeito colateral.
 - **THEN** a API sobe normalmente e esse cliente fica sem CNPJ completo até
   alguém confirmá-lo pela tela
 
-#### Scenario: Listagem não expõe o CNPJ completo
+#### Scenario: Banco legível
 
-- **WHEN** a listagem, a busca, o detalhe ou o CSV de clientes é gerado
-- **THEN** o CNPJ completo não aparece em nenhum deles
+- **WHEN** o CNPJ de um cliente é consultado diretamente no banco
+- **THEN** a coluna do CNPJ completo traz os 14 dígitos, sem cifra
+
+### Requirement: O CNPJ completo é o que a plataforma exibe e busca
+
+O sistema DEVE (MUST) exibir o CNPJ completo, formatado (`00.000.000/0000-00`),
+em toda tela e documento que mostre o CNPJ de um cliente — listagem, edição,
+sidebar e importação do PGDAS, onboarding e seu PDF, exportação CSV —, quando o
+cliente o tem gravado. Quando não o tem (só hash e máscara), DEVE (MUST)
+exibir a máscara, sem erro. A busca da listagem DEVE (MUST) também casar pelos
+dígitos do CNPJ completo.
+
+#### Scenario: Listagem de cliente com CNPJ completo
+
+- **WHEN** a tela de clientes lista um cliente com CNPJ completo gravado
+- **THEN** a coluna de CNPJ mostra o CNPJ completo formatado
+
+#### Scenario: Listagem de cliente sem CNPJ completo
+
+- **WHEN** a tela de clientes lista um cliente que só tem hash e máscara
+- **THEN** a coluna de CNPJ mostra a máscara
+
+#### Scenario: Busca pelo CNPJ
+
+- **WHEN** o usuário digita parte do CNPJ completo no campo de busca
+- **THEN** a listagem traz os clientes cujo CNPJ completo contém esses dígitos
+
+#### Scenario: Edição abre com o CNPJ completo
+
+- **WHEN** o usuário abre a edição de um cliente com CNPJ completo gravado
+- **THEN** o campo de CNPJ vem preenchido com o CNPJ completo
