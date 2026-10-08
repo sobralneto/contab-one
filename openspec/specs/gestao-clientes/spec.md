@@ -144,80 +144,6 @@ própria — sem isso, cliente cadastrado pela interface nasce sem hash e nunca
 - **THEN** hash, máscara e CNPJ completo do cliente são recalculados e
   persistidos a partir do valor informado
 
-### Requirement: A sincronização do agente respeita o CNPJ confirmado manualmente
-
-Ao sincronizar um cliente **já existente**, o agente NÃO DEVE (MUST NOT)
-sobrescrever CNPJ completo, hash ou máscara de um cliente cujo CNPJ tenha
-sido confirmado manualmente pela tela. Para os demais clientes de origem
-agente — ainda sem confirmação manual —, a sincronização continua gravando
-CNPJ completo, hash e máscara normalmente, como fonte primária.
-
-Confirmar manualmente marca que uma pessoa já verificou o CNPJ correto desse
-cliente. Diferente da validade do certificado, o CNPJ não tem uma ordem
-natural que diga qual valor é "melhor" — uma correção manual e o que o
-agente lê do certificado são apenas diferentes, nunca um mais recente que o
-outro —, então a regra de precedência não compara valores: só sabe que
-alguém já confirmou, e para de escrever por cima a partir daí. Sem a regra,
-a sincronização seguinte apagaria a correção sem explicação, o mesmo estrago
-que a preservação do regime tributário e o avanço da validade do certificado
-evitam nos campos vizinhos.
-
-#### Scenario: Sincronização de cliente com CNPJ confirmado manualmente
-
-- **WHEN** o agente sincroniza um cliente já existente cujo CNPJ foi
-  confirmado manualmente pela tela
-- **THEN** o cliente mantém o CNPJ completo, o hash e a máscara que já
-  tinha, mesmo que o agente informe valores diferentes
-
-#### Scenario: Sincronização de cliente sem confirmação manual
-
-- **WHEN** o agente sincroniza um cliente já existente cujo CNPJ nunca foi
-  confirmado manualmente
-- **THEN** CNPJ completo, hash e máscara são atualizados com o que o agente
-  informou, como antes desta mudança
-
-#### Scenario: Cliente cadastrado pelo agente
-
-- **WHEN** o agente cadastra um cliente que ainda não existia
-- **THEN** o cliente nasce sem confirmação manual, e uma sincronização
-  seguinte pode atualizar seu CNPJ normalmente
-
-### Requirement: O campo de CNPJ é editável para qualquer cliente
-
-Na edição de um cliente, o sistema DEVE (MUST) oferecer o campo de CNPJ
-habilitado, qualquer que seja a origem do cliente. Salvar um CNPJ informado
-pela tela DEVE (MUST) marcar o cliente como tendo o CNPJ confirmado
-manualmente.
-
-O sistema DEVE (MUST) exibir, junto ao campo de um cliente de origem agente
-ainda sem confirmação manual, a informação de que o agente pode substituir o
-valor na próxima sincronização até que alguém confirme pela tela.
-
-Bloquear o campo não protegia nada: o CNPJ completo desses clientes nunca
-chegava a existir na plataforma, sem caminho nenhum para alguém corrigi-lo
-ou completá-lo à mão. Quem sustenta a informação agora é a regra de
-precedência da sincronização, não a trava da tela.
-
-#### Scenario: Edição de cliente de origem agente sem confirmação
-
-- **WHEN** o usuário abre a edição de um cliente de origem agente cujo CNPJ
-  nunca foi confirmado manualmente
-- **THEN** o campo de CNPJ está habilitado, acompanhado da informação de que
-  o agente pode substituí-lo até a confirmação manual
-
-#### Scenario: CNPJ confirmado pela tela
-
-- **WHEN** o usuário informa um CNPJ na edição de um cliente e salva
-- **THEN** o CNPJ completo é gravado, e o cliente passa a ser tratado como
-  confirmado manualmente nas sincronizações seguintes do agente
-
-#### Scenario: Edição por usuário sem papel de administração
-
-- **WHEN** um usuário do escritório sem papel de administração abre a edição
-  de um cliente
-- **THEN** o campo de CNPJ está habilitado para ele como para os demais
-  papéis
-
 ### Requirement: Cliente é identificado pelo CNPJ do documento
 
 O sistema DEVE (MUST) localizar, dentro do escritório da sessão, o cliente
@@ -1088,9 +1014,9 @@ quem a vê. Quem exporta deve reconhecer no arquivo a lista que estava
 olhando — arquivo que pede tradução mental não é exportação, é segunda tela.
 
 O CNPJ DEVE (MUST) aparecer no arquivo exatamente como a tabela o exibe:
-mascarado. O arquivo viaja — e-mail, pasta compartilhada, mesa do cliente —
-e NÃO DEVE (MUST NOT) carregar nem o CNPJ completo nem o hash de
-identificação; o que não está na tela não entra no arquivo.
+completo e formatado quando o cliente o tem, e mascarado quando não tem. O
+arquivo NÃO DEVE (MUST NOT) carregar o hash de identificação; o que não está
+na tela não entra no arquivo.
 
 Ausência de valor — regime não informado, certificado não registrado — DEVE
 (MUST) sair como célula vazia, e NÃO DEVE (MUST NOT) sair como "—": o
@@ -1101,11 +1027,16 @@ entende como ausência.
 Os valores DEVEM (MUST) sair com os rótulos que a tela usa: regime por
 extenso, 2FA como "Sim" ou "Não".
 
-#### Scenario: CNPJ mascarado
+#### Scenario: CNPJ completo
 
-- **WHEN** o arquivo exportado contém um cliente com CNPJ registrado
-- **THEN** a célula de CNPJ traz a forma mascarada, igual à da tabela, e nem
-  o CNPJ completo nem o hash aparecem em qualquer coluna
+- **WHEN** o arquivo exportado contém um cliente com CNPJ completo gravado
+- **THEN** a célula de CNPJ traz o CNPJ completo formatado, igual à tabela, e
+  o hash não aparece em nenhuma coluna
+
+#### Scenario: Cliente sem CNPJ completo
+
+- **WHEN** o arquivo exportado contém um cliente que só tem hash e máscara
+- **THEN** a célula de CNPJ traz a forma mascarada, igual à da tabela
 
 #### Scenario: Coluna de escritório para o admin
 
@@ -1288,7 +1219,7 @@ DEVE (MUST) levar de volta à primeira página.
 
 - **WHEN** o usuário digita um termo de busca com "Inativos" selecionado
 - **THEN** a listagem exibe apenas os clientes inativos cujo nome, código ou
-  CNPJ mascarado atendem ao termo
+  CNPJ atendem ao termo
 
 #### Scenario: Situação disponível para o administrador
 
@@ -1356,3 +1287,139 @@ reapareceria sozinho na próxima execução do agente.
 
 - **WHEN** o agente cadastra um cliente que ainda não existia
 - **THEN** o cliente nasce ativo, como qualquer outro cadastro novo
+
+### Requirement: A sincronização do agente respeita o CNPJ confirmado manualmente
+
+Ao sincronizar um cliente **já existente**, o agente NÃO DEVE (MUST NOT)
+sobrescrever CNPJ completo, hash ou máscara de um cliente cujo CNPJ tenha
+sido confirmado manualmente pela tela. Para os demais clientes de origem
+agente — ainda sem confirmação manual —, a sincronização continua gravando
+CNPJ completo, hash e máscara normalmente, como fonte primária.
+
+Confirmar manualmente marca que uma pessoa já verificou o CNPJ correto desse
+cliente. Diferente da validade do certificado, o CNPJ não tem uma ordem
+natural que diga qual valor é "melhor" — uma correção manual e o que o
+agente lê do certificado são apenas diferentes, nunca um mais recente que o
+outro —, então a regra de precedência não compara valores: só sabe que
+alguém já confirmou, e para de escrever por cima a partir daí. Sem a regra,
+a sincronização seguinte apagaria a correção sem explicação, o mesmo estrago
+que a preservação do regime tributário e o avanço da validade do certificado
+evitam nos campos vizinhos.
+
+#### Scenario: Sincronização de cliente com CNPJ confirmado manualmente
+
+- **WHEN** o agente sincroniza um cliente já existente cujo CNPJ foi
+  confirmado manualmente pela tela
+- **THEN** o cliente mantém o CNPJ completo, o hash e a máscara que já
+  tinha, mesmo que o agente informe valores diferentes
+
+#### Scenario: Sincronização de cliente sem confirmação manual
+
+- **WHEN** o agente sincroniza um cliente já existente cujo CNPJ nunca foi
+  confirmado manualmente
+- **THEN** CNPJ completo, hash e máscara são atualizados com o que o agente
+  informou, como antes desta mudança
+
+#### Scenario: Cliente cadastrado pelo agente
+
+- **WHEN** o agente cadastra um cliente que ainda não existia
+- **THEN** o cliente nasce sem confirmação manual, e uma sincronização
+  seguinte pode atualizar seu CNPJ normalmente
+
+### Requirement: O campo de CNPJ é editável para qualquer cliente
+
+Na edição de um cliente, o sistema DEVE (MUST) oferecer o campo de CNPJ
+habilitado, qualquer que seja a origem do cliente. Salvar um CNPJ informado
+pela tela DEVE (MUST) marcar o cliente como tendo o CNPJ confirmado
+manualmente.
+
+O sistema DEVE (MUST) exibir, junto ao campo de um cliente de origem agente
+ainda sem confirmação manual, a informação de que o agente pode substituir o
+valor na próxima sincronização até que alguém confirme pela tela.
+
+Bloquear o campo não protegia nada: o CNPJ completo desses clientes nunca
+chegava a existir na plataforma, sem caminho nenhum para alguém corrigi-lo
+ou completá-lo à mão. Quem sustenta a informação agora é a regra de
+precedência da sincronização, não a trava da tela.
+
+#### Scenario: Edição de cliente de origem agente sem confirmação
+
+- **WHEN** o usuário abre a edição de um cliente de origem agente cujo CNPJ
+  nunca foi confirmado manualmente
+- **THEN** o campo de CNPJ está habilitado, acompanhado da informação de que
+  o agente pode substituí-lo até a confirmação manual
+
+#### Scenario: CNPJ confirmado pela tela
+
+- **WHEN** o usuário informa um CNPJ na edição de um cliente e salva
+- **THEN** o CNPJ completo é gravado, e o cliente passa a ser tratado como
+  confirmado manualmente nas sincronizações seguintes do agente
+
+#### Scenario: Edição por usuário sem papel de administração
+
+- **WHEN** um usuário do escritório sem papel de administração abre a edição
+  de um cliente
+- **THEN** o campo de CNPJ está habilitado para ele como para os demais
+  papéis
+
+### Requirement: O CNPJ completo é guardado legível no banco
+
+O sistema DEVE (MUST) persistir o CNPJ completo do cliente em texto legível
+(somente os 14 dígitos), sem cifrá-lo. Onde o CNPJ do cliente é exibido —
+listagem, detalhe, busca, exportação CSV —, vale o CNPJ completo, e não a
+máscara (ver "O CNPJ completo é o que a plataforma exibe e busca").
+
+Os CNPJs que já estavam guardados cifrados DEVEM (MUST) ser migrados para a
+forma legível sem perda, e a migração DEVE (MUST) poder rodar mais de uma vez
+sem efeito colateral.
+
+#### Scenario: Cadastro informando o CNPJ
+
+- **WHEN** um cliente é cadastrado ou editado com o CNPJ completo informado
+- **THEN** o banco guarda os 14 dígitos legíveis, além de hash e máscara
+
+#### Scenario: Cliente com CNPJ guardado cifrado antes desta mudança
+
+- **WHEN** a API sobe com clientes que só têm o CNPJ cifrado
+- **THEN** o CNPJ legível é preenchido a partir do valor cifrado, e uma nova
+  subida não altera nada
+
+#### Scenario: Valor cifrado que não pode ser decifrado
+
+- **WHEN** um valor cifrado não autentica (chave diferente da original)
+- **THEN** a API sobe normalmente e esse cliente fica sem CNPJ completo até
+  alguém confirmá-lo pela tela
+
+#### Scenario: Banco legível
+
+- **WHEN** o CNPJ de um cliente é consultado diretamente no banco
+- **THEN** a coluna do CNPJ completo traz os 14 dígitos, sem cifra
+
+### Requirement: O CNPJ completo é o que a plataforma exibe e busca
+
+O sistema DEVE (MUST) exibir o CNPJ completo, formatado (`00.000.000/0000-00`),
+em toda tela e documento que mostre o CNPJ de um cliente — listagem, edição,
+sidebar e importação do PGDAS, onboarding e seu PDF, exportação CSV —, quando o
+cliente o tem gravado. Quando não o tem (só hash e máscara), DEVE (MUST)
+exibir a máscara, sem erro. A busca da listagem DEVE (MUST) também casar pelos
+dígitos do CNPJ completo.
+
+#### Scenario: Listagem de cliente com CNPJ completo
+
+- **WHEN** a tela de clientes lista um cliente com CNPJ completo gravado
+- **THEN** a coluna de CNPJ mostra o CNPJ completo formatado
+
+#### Scenario: Listagem de cliente sem CNPJ completo
+
+- **WHEN** a tela de clientes lista um cliente que só tem hash e máscara
+- **THEN** a coluna de CNPJ mostra a máscara
+
+#### Scenario: Busca pelo CNPJ
+
+- **WHEN** o usuário digita parte do CNPJ completo no campo de busca
+- **THEN** a listagem traz os clientes cujo CNPJ completo contém esses dígitos
+
+#### Scenario: Edição abre com o CNPJ completo
+
+- **WHEN** o usuário abre a edição de um cliente com CNPJ completo gravado
+- **THEN** o campo de CNPJ vem preenchido com o CNPJ completo
