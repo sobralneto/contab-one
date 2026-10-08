@@ -1,14 +1,4 @@
-## Purpose
-
-Cobre a integração do `Det.Agent` com `ContabOne.Api`, trazendo o robô da Caixa
-Postal DET à paridade com `Nfse.Agent`: exigência de credencial de API,
-autenticação como agente do produto DET, lista de empresas vinda da carteira
-de clientes do painel (só leitura: o agente nunca escreve cadastro), conferência
-de que o certificado é do escritório da chave, substituição do CSV local pelo
-relatório enviado à API, e a mesma fila de pendências com reenvio usada por
-qualquer outro agente.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: `Det.Agent` recusa rodar sem credencial de API
 
@@ -32,19 +22,7 @@ mensagem explicando o que falta — o mesmo comportamento de
 - **THEN** a execução prossegue e usa essas credenciais para autenticar
   contra `ContabOne.Api`
 
-### Requirement: `Det.Agent` autentica como agente do produto DET
-
-`Det.Agent` DEVE (MUST) apresentar a chave de `[api] chave` no cabeçalho
-`X-Api-Key` em toda chamada à API, seguindo o mesmo formato
-`det_<prefixo8>_<segredo32>` já reservado para o produto DET em
-`ApiKeyHasher`, e DEVE (MUST) tratar uma resposta 401 como bloqueio
-imediato — nunca como "API indisponível" — assim como `Nfse.Agent` já faz.
-
-#### Scenario: Chave revogada ou escritório inativo
-
-- **WHEN** a API responde 401 a qualquer chamada de `Det.Agent`
-- **THEN** a execução é interrompida imediatamente, sem cair em nenhuma
-  carência offline
+## ADDED Requirements
 
 ### Requirement: `Det.Agent` consulta a carteira de clientes vinda da API
 
@@ -122,39 +100,14 @@ e seguir.
 - **WHEN** o hash do CNPJ do certificado é igual ao do escritório
 - **THEN** a execução segue para o login no gov.br
 
-### Requirement: O relatório da execução substitui a geração de CSV local
+## REMOVED Requirements
 
-Ao final de uma execução com `[api]` configurado, `Det.Agent` DEVE (MUST)
-enviar as mensagens coletadas (título, mensagem, datas, situação, link, por
-empresa) para a API, abrindo e finalizando uma `Execucao` como
-`Nfse.Agent` já faz, e NÃO DEVE (MUST NOT) gravar
-`resultado/YYYY-MM-DD_resultado-det.csv` como parte desse fluxo.
+### Requirement: `Det.Agent` vincula mensagens ao cliente por CNPJ
 
-#### Scenario: Execução normal com API configurada
+**Reason**: o agente deixa de cadastrar clientes. A lista vem da API já com o
+`Cliente.Id`, então o upsert por CNPJ — que também dava a um robô de leitura o
+poder de criar e alterar clientes — não é mais necessário nem permitido.
 
-- **WHEN** `Det.Agent` termina de varrer todas as empresas com `[api]`
-  configurada e válida
-- **THEN** as mensagens de cada empresa são enviadas para a API vinculadas
-  ao `Cliente.Id` correto, a execução é finalizada com o status
-  correspondente, e nenhum CSV é gravado em `resultado/`
-
-#### Scenario: Regeneração manual de CSV a partir do JSON local
-
-- **WHEN** um operador roda `tools/exportar_csv.py` apontando para um JSON
-  já salvo em `dados/`
-- **THEN** o CSV é gerado normalmente — essa ferramenta avulsa não muda,
-  só deixa de rodar automaticamente ao fim da coleta
-
-### Requirement: Falha no envio do relatório não perde as mensagens coletadas
-
-`Det.Agent` DEVE (MUST) preservar localmente o relatório coletado quando o
-envio para a API falhar (rede indisponível, erro 5xx) e DEVE (MUST) reenviá-lo
-na execução seguinte, seguindo a mesma fila de pendências e o mesmo descarte
-após trinta dias que `registro-execucoes-agente` já define para qualquer
-agente.
-
-#### Scenario: API indisponível ao final da coleta
-
-- **WHEN** o envio do relatório falha por indisponibilidade da API
-- **THEN** o relatório coletado é preservado localmente e a execução
-  seguinte tenta reenviá-lo antes de iniciar sua própria coleta
+**Migration**: cadastre (ou complete o CNPJ de) cada cliente pelo painel, em
+Clientes; o agente passa a consultar automaticamente todo cliente ativo com
+CNPJ completo. A planilha `empresas/empresas.xlsx` pode ser apagada.
