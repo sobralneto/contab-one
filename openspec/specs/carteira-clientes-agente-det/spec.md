@@ -12,8 +12,8 @@ Exclusiva do produto DET e sem nenhum efeito de escrita no cadastro.
 A API DEVE (MUST) oferecer, no grupo `/api/agent` e autenticado por
 `X-Api-Key`, um endpoint de leitura que devolve os clientes **ativos**
 (`Cliente.Ativo = true`) do escritório identificado pela chave, cada um com
-`id` (`Cliente.Id`), `nome` e `cnpj` completo (14 dígitos, decifrado de
-`Cliente.CnpjCifrado`). O escritório DEVE (MUST) ser resolvido pelo
+`id` (`Cliente.Id`), `nome` e `cnpj` completo (14 dígitos, de
+`Cliente.Cnpj`). O escritório DEVE (MUST) ser resolvido pelo
 `TenantContext` da chave — nunca por parâmetro de rota ou de query.
 
 #### Scenario: Escritório com clientes ativos e inativos
@@ -32,7 +32,7 @@ A API DEVE (MUST) oferecer, no grupo `/api/agent` e autenticado por
 ### Requirement: Clientes sem CNPJ completo são contados, não listados
 
 A lista MUST NOT incluir cliente ativo sem CNPJ completo cadastrado
-(`CnpjCifrado` nulo), e a resposta DEVE (MUST) informar
+(`Cliente.Cnpj` nulo), e a resposta DEVE (MUST) informar
 quantos clientes ativos ficaram de fora por esse motivo, para que o agente
 possa avisar o operador.
 
