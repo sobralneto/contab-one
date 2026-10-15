@@ -2,8 +2,7 @@
 
 Cobre a carteira de clientes que a API entrega ao agente DET: a lista, só de
 leitura, dos clientes ativos com CNPJ completo do escritório identificado pela
-chave, com o hash do CNPJ do escritório para a conferência do certificado.
-Exclusiva do produto DET e sem nenhum efeito de escrita no cadastro.
+chave. Exclusiva do produto DET e sem nenhum efeito de escrita no cadastro.
 
 ## Requirements
 
@@ -42,18 +41,6 @@ possa avisar o operador.
   completo
 - **THEN** a resposta lista os três com CNPJ completo e informa `2` como a
   quantidade de clientes sem CNPJ completo
-
-### Requirement: A resposta traz o hash do CNPJ do escritório
-
-A resposta DEVE (MUST) incluir o `CnpjHash` do escritório da chave (o mesmo
-HMAC de `CnpjHasher`), para que o agente confira se o certificado da pasta
-pertence a esse escritório. Escritório sem CNPJ cadastrado devolve o campo
-vazio.
-
-#### Scenario: Escritório com CNPJ cadastrado
-
-- **WHEN** o escritório da chave tem `CnpjHash` preenchido
-- **THEN** a resposta traz esse mesmo valor no campo do hash do escritório
 
 ### Requirement: O endpoint é exclusivo de agentes do produto DET
 

@@ -2,11 +2,10 @@
 
 Cobre a integração do `Det.Agent` com `ContabOne.Api`, trazendo o robô da Caixa
 Postal DET à paridade com `Nfse.Agent`: exigência de credencial de API,
-autenticação como agente do produto DET, lista de empresas vinda da carteira
-de clientes do painel (só leitura: o agente nunca escreve cadastro), conferência
-de que o certificado é do escritório da chave, substituição do CSV local pelo
-relatório enviado à API, e a mesma fila de pendências com reenvio usada por
-qualquer outro agente.
+autenticação como agente do produto DET, escritório identificado só pela chave,
+lista de empresas vinda da carteira de clientes do painel (só leitura: o agente
+nunca escreve cadastro), substituição do CSV local pelo relatório enviado à
+API, e a mesma fila de pendências com reenvio usada por qualquer outro agente.
 
 ## Requirements
 
@@ -101,27 +100,6 @@ Postal.
 - **THEN** o reenvio também não chama `POST /api/agent/clientes`, e usa os
   `Cliente.Id` guardados na própria pendência
 
-### Requirement: O certificado da pasta tem de ser do escritório da chave
-
-Antes de abrir o navegador, `Det.Agent` DEVE (MUST) ler o CNPJ do certificado
-único de `certificado/`, calcular o hash HMAC dele com a chave recebida no
-handshake e compará-lo com o hash do escritório informado pela API. Hashes
-diferentes DEVEM (MUST) encerrar a execução com erro de configuração. Quando
-o escritório não tem CNPJ cadastrado, o agente DEVE (MUST) registrar um aviso
-e seguir.
-
-#### Scenario: Certificado de outra empresa
-
-- **WHEN** o certificado da pasta é de um CNPJ diferente do escritório da
-  chave
-- **THEN** a execução encerra com código de erro de configuração, sem abrir o
-  navegador, e o log diz que o certificado não pertence ao escritório
-
-#### Scenario: Certificado do escritório
-
-- **WHEN** o hash do CNPJ do certificado é igual ao do escritório
-- **THEN** a execução segue para o login no gov.br
-
 ### Requirement: O relatório da execução substitui a geração de CSV local
 
 Ao final de uma execução com `[api]` configurado, `Det.Agent` DEVE (MUST)
@@ -170,3 +148,23 @@ agente.
 - **WHEN** o envio do relatório falha por indisponibilidade da API
 - **THEN** o relatório coletado é preservado localmente e a execução
   seguinte tenta reenviá-lo antes de iniciar sua própria coleta
+
+### Requirement: O escritório é identificado só pela chave de API
+
+`Det.Agent` DEVE (MUST) tratar como escritório da execução o dono da chave de
+`[api] chave`, e NÃO DEVE (MUST NOT) interromper a execução por causa do CNPJ
+do certificado da pasta `certificado/`, nem conferir esse CNPJ contra o
+cadastro do escritório no painel.
+
+#### Scenario: Escritório cadastrado sem hash de CNPJ
+
+- **WHEN** a carteira é lida com uma chave válida de um escritório cujo
+  cadastro no painel não tem hash de CNPJ
+- **THEN** a execução segue para o login no gov.br e consulta os clientes da
+  carteira dessa chave
+
+#### Scenario: API antiga ainda manda o hash do escritório
+
+- **WHEN** a resposta da carteira ainda traz um hash de CNPJ do escritório
+  que não corresponde ao certificado da pasta
+- **THEN** o agente ignora esse campo e consulta os clientes da carteira
