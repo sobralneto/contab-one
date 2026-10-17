@@ -87,7 +87,7 @@ EF Core 10 + Npgsql, multi-tenant por *global query filter*.
 | Banco | PostgreSQL (migrations rodam no startup) |
 | Auth humano | ASP.NET Core Identity + JWT (access curto + refresh) |
 | Auth agente | API key por agente, hash no banco (header `X-Api-Key`), escopada por ferramenta |
-| Validação | FluentValidation · Logs: Serilog · Docs: OpenAPI + Scalar |
+| Validação | FluentValidation · Logs: console nativo do .NET (uma linha por evento) · Docs: OpenAPI + Scalar |
 | Rate limit | nativo, particionado por IP — `auth` 10/min, `agent` 60/min |
 
 Grupos de rota: `/api/auth`, `/api/agent`, `/api/dashboard`, `/api/clientes`,
