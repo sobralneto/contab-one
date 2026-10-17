@@ -198,9 +198,8 @@ nenhuma ferramenta e não passam por gate comercial: `/clientes`, `/agentes`,
 `/usuarios`, `/onboarding/modelos`, `/tarefas` e `/arquivos`.
 
 Vue 3 com `<script setup>` + TypeScript + Vite; Pinia para sessão, Vue Router
-com guards por papel, PrimeVue 4 (preset Nora) + Tailwind, Chart.js para os
-gráficos, Axios com interceptor de refresh automático no 401, vee-validate +
-zod nos formulários.
+com guards por papel, Tailwind, Chart.js direto (sem wrapper de UI) para os
+gráficos, Axios com interceptor de refresh automático no 401.
 
 ```bash
 cd ContabOne.Frontend

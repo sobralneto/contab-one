@@ -18,7 +18,7 @@ Four runnable pieces in one monorepo:
 | Path | What | Stack |
 |---|---|---|
 | `ContabOne.Api/` | licensing, multi-tenant data, metrics, catalog | .NET 10 minimal APIs + EF Core + PostgreSQL |
-| `ContabOne.Frontend/` | the panel (hub, dashboards, admin) | Vue 3 `<script setup>` + TS + Vite + PrimeVue 4 + Tailwind |
+| `ContabOne.Frontend/` | the panel (hub, dashboards, admin) | Vue 3 `<script setup>` + TS + Vite + Tailwind + Chart.js |
 | `Nfse.Agent/` | NFS-e collector — the flagship agent (`nfse.exe`) | Python 3.14 + PyInstaller |
 | `Det.Agent/`, `Rfb.Agent/` | DET caixa postal, RFB consumo-tributos credentials | Python + Playwright |
 
@@ -302,11 +302,12 @@ that gets corrected. The bullets below are only the traps that bite hardest.
   outside this family: it is a stat tile, not a panel card.
 - MSW runs with `onUnhandledRequest: 'error'` (`src/testes/setup.ts`): an
   unmocked request fails the test.
-- `npm install` may need `--legacy-peer-deps` (`@vee-validate/zod` wants zod@^3,
-  the project is on zod@^4). **Do not pass it when adding a package**, though:
-  npm then skips peer dependencies and silently prunes `@testing-library/dom`,
-  which takes the whole Vitest suite down with
-  `Cannot find package '@testing-library/dom'`.
+- **Never pass `--legacy-peer-deps`** to `npm install`: npm then skips peer
+  dependencies and silently prunes `@testing-library/dom`, which takes the
+  whole Vitest suite down with `Cannot find package '@testing-library/dom'`.
+- Charts go through `src/components/comum/Grafico.vue`, a thin wrapper over
+  Chart.js (lazy `import('chart.js/auto')`). There is no UI component library:
+  PrimeVue was dropped because `primevue/chart` was its only use.
 
 ### Contracts shared between C# and Python
 
