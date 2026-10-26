@@ -16,6 +16,10 @@ DEVEM (MUST NOT) ser atribuídas por suposição a outra empresa do lote.
 Remover um arquivo do lote DEVE (MUST) remover também as competências que
 vieram exclusivamente dele.
 
+A data de abertura no CNPJ e o Nº da Declaração lidos de um documento DEVEM
+(MUST) ficar com a empresa daquele documento, e NÃO DEVEM (MUST NOT) ser
+atribuídos a outra empresa do lote.
+
 #### Scenario: Lote com extratos de duas empresas
 
 - **WHEN** o usuário carrega, no mesmo lote, extratos de duas empresas com
@@ -36,6 +40,13 @@ vieram exclusivamente dele.
 - **THEN** eles resultam em uma única linha de competência naquela empresa,
   como numa importação de empresa única
 
+#### Scenario: Data de abertura não passa de uma empresa para outra
+
+- **WHEN** o lote traz documentos de duas empresas e só os de uma delas trazem
+  a data de abertura no CNPJ
+- **THEN** a data de abertura fica associada apenas a essa empresa, e a outra
+  segue sem data de abertura lida
+
 #### Scenario: Documento sem CNPJ reconhecível
 
 - **WHEN** um documento é lido com competências válidas mas sem CNPJ
@@ -53,9 +64,11 @@ vieram exclusivamente dele.
 
 A etapa de conferência DEVE (MUST) exibir um card para cada empresa do lote.
 Cada card DEVE (MUST) mostrar, no topo, a identificação da empresa — razão
-social editável, CNPJ mascarado, município/UF e anexo/atividade editáveis, e a
-situação do cliente no escritório (já cadastrado ou ainda não cadastrado) — e,
-abaixo dela, a tabela editável com as competências importadas daquela empresa.
+social editável, CNPJ mascarado, município/UF e anexo/atividade editáveis, a
+data de abertura no CNPJ quando lida dos documentos (só leitura, porque a
+gravação a grava no cadastro do cliente), e a situação do cliente no
+escritório (já cadastrado ou ainda não cadastrado) — e, abaixo dela, a tabela
+editável com as competências importadas daquela empresa.
 
 A sinalização de divergência entre a soma dos tributos e o DAS, a alternância
 Pago/Aberto, a marcação de sem movimento e a remoção de linha DEVEM (MUST)
@@ -113,6 +126,12 @@ cliente. A gravação de uma empresa NÃO DEVE (MUST NOT) depender do sucesso da
 gravação das demais, e uma empresa já gravada com sucesso NÃO DEVE (MUST NOT)
 ser regravada ao se tentar de novo as que falharam.
 
+O pedido de gravação de cada empresa DEVE (MUST) levar a data de abertura do
+cliente e o Nº da Declaração de cada competência lidos dos documentos **daquela
+empresa**, e apenas deles. Empresa cujos documentos não trouxeram data de
+abertura DEVE (MUST) ser gravada sem ela, mantendo a data já existente no
+cadastro do cliente.
+
 A regra de recusa e confirmação explícita de substituição ("Uma apuração por
 cliente e competência") DEVE (MUST) valer por empresa: o conflito de uma
 empresa é exibido e confirmado no card dela, sem bloquear nem substituir nada
@@ -128,6 +147,13 @@ cliente identificado ou que estão com conflito pendente de confirmação.
   grava o lote
 - **THEN** as competências de cada empresa são gravadas no cliente
   correspondente, e o resultado de cada empresa é exibido
+
+#### Scenario: Data de abertura gravada só no cliente certo
+
+- **WHEN** um lote com as empresas A e B é gravado, e só os documentos de A
+  trouxeram data de abertura
+- **THEN** a data de abertura é gravada no cliente de A, e o cliente de B
+  mantém a data de abertura que já tinha (ou continua sem nenhuma)
 
 #### Scenario: Empresa nova no meio do lote
 

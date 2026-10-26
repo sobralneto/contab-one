@@ -11,12 +11,21 @@ deriva dela tudo o que é "da empresa":
   `_nome`/`_cnpj`;
 - `cnpjDoLote()` pega o primeiro CNPJ encontrado e a identificação roda uma vez;
 - `gravar()` monta um único `GravarApuracoesRequest` com um único `clienteId`,
-  uma série mensal e uma `competenciaDocumento`;
+  uma série mensal, uma `competenciaDocumento` e uma `dataAberturaCliente`
+  tirada de `competencias.find(c => c._abertura)` — o primeiro documento do lote
+  que trouxe a data;
 - `removerArquivo(i)` tira o arquivo da lista mas deixa as competências dele.
 
 O parser (`features/pgdas/parser/`) já devolve `_cnpj`, `_nome`, `_mun`,
 `_anexoTxt` **por bloco de apuração**, ou seja, a informação para agrupar já
-existe — o que falta é o assistente usá-la.
+existe — o que falta é o assistente usá-la. Desde a change
+`demonstrativo-faturamento-pgdas` ele também devolve, por bloco, `_abertura`
+(data de abertura no CNPJ, ISO) e `numeroDeclaracao`; a API grava a primeira em
+`Cliente.DataAbertura` (substituindo o valor anterior, ou mantendo-o quando o
+campo não vem) e o segundo em `ApuracaoSimples.NumeroDeclaracao` (só dígitos,
+até 30, senão 400). A busca de `_abertura` no lote inteiro só é segura porque
+hoje o lote é de uma empresa; com várias, ela gravaria a data de uma empresa no
+cadastro de outra.
 
 Na API, `POST /api/pgdas/apuracoes` grava o lote de um cliente com um único
 `SaveChangesAsync` (atômico por cliente) e devolve 409 com as competências em
@@ -46,7 +55,10 @@ apenas valores conferidos, e o CNPJ aparece mascarado na tela de importação.
   sequencial, como hoje.
 - Persistir o lote em andamento (recarregar a página continua descartando-o).
 - Mudar o parser ou o leiaute aceito do PGDAS-D.
-- Mudar a visão geral ou a dashboard.
+- Mudar a visão geral, a dashboard ou o demonstrativo de faturamento. Clientes
+  cadastrados no lote passam a aparecer no filtro de cliente da visão geral
+  sozinhos (`GET /api/pgdas/clientes` lista quem tem apuração), sem trabalho
+  desta change.
 
 ## Decisions
 
@@ -57,6 +69,7 @@ interface EmpresaLote {
   chave: string                // cnpj só dígitos, ou `sem-cnpj:<idArquivo>`
   cnpj: string | null          // dígitos; null enquanto não identificada
   dados: { nome: string; municipio: string; anexo: string } // editáveis
+  dataAbertura: string | null  // ISO, dos documentos desta empresa; só leitura
   competencias: CompetenciaLote[]
   cliente: EstadoCliente       // 'pendente' | 'buscando' | encontrado | novo | erro
   gravacao: EstadoGravacao     // 'aguardando' | 'gravando' | 'gravada' | conflito | erro
@@ -81,12 +94,22 @@ objetos estáveis.
   `c._cnpj` do bloco; bloco sem CNPJ herda o CNPJ de outro bloco **do mesmo
   arquivo**; se nenhum bloco do arquivo trouxer CNPJ, a chave é
   `sem-cnpj:<idArquivo>`. Dentro da empresa, mescla por `_pa` com a regra atual
-  (último documento lido prevalece) e acumula `_arquivos`.
+  (último documento lido prevalece) e acumula `_arquivos`. Na mescla,
+  `numeroDeclaracao` e `_abertura` também vêm do último documento lido, mas
+  quando ele não os traz ficam os do documento anterior — extrato e declaração
+  do mesmo mês não trazem sempre os mesmos rótulos, e perder o número por causa
+  da ordem de leitura esvaziaria a nota do demonstrativo.
+  `EmpresaLote.dataAbertura` é a `_abertura` do documento de competência mais
+  recente **daquela empresa** que a trouxer.
 - `removerArquivo(lote, idArquivo)` — tira o id de `_arquivos`; competência que
   fica sem arquivo de origem sai; empresa sem competências sai.
 - `informarCnpj(lote, chave, cnpj)` — dá CNPJ a um grupo não identificado; se
   outro grupo já tem esse CNPJ, funde os dois (mesma mescla por `_pa`).
 - `ordenar` — empresas por razão social; competências por período crescente.
+- `montarRequisicao(empresa, substituir)` — o `GravarApuracoesRequest` de uma
+  empresa, só com as competências dela: `dataAberturaCliente =
+  empresa.dataAbertura ?? undefined` (ausente mantém a data do cadastro) e
+  `numeroDeclaracao` por apuração.
 
 Isso deixa o comportamento das specs testável em Vitest sem montar a view nem
 mockar pdf.js, e a view fica só com orquestração. **Por que não inferir a
@@ -105,7 +128,8 @@ eventos (`remover-empresa`, `remover-competencia`, `informar-cnpj`,
 `cadastrar`, `gravar`). O card usa a família `.card-painel*` de
 `components.css` para a moldura (cabeçalho com razão social, contagem de
 competências como badge, ação de retirar a empresa) e mantém **scoped** só o que
-é dele: o grid de identificação e a tabela de conferência (as classes
+é dele: o grid de identificação (que ganha a data de abertura, só leitura, ao
+lado do CNPJ mascarado) e a tabela de conferência (as classes
 `.conf-table`, `.num-input` etc. migram da view para o card). A tabela segue em
 `.table-card` com `overflow-x: auto`, como hoje.
 
@@ -129,13 +153,15 @@ quando o usuário informa o CNPJ (`informarCnpj` → identificar). Voltar ao pas
 
 "Gravar todas" percorre as empresas prontas (cliente identificado, gravação em
 `aguardando` ou `erro`) **uma de cada vez** e chama o `POST /api/pgdas/apuracoes`
-existente com o `GravarApuracoesRequest` daquela empresa — `montarSerieMensal`
+existente com o `montarRequisicao` daquela empresa (D2) — `montarSerieMensal`
 e `competenciaDocumentoMaisRecente` passam a receber a lista de competências da
 empresa em vez de ler o estado global. Resultado por empresa:
 
 - 200 → `gravada` (não entra mais em "Gravar todas");
 - 409 → `conflito` com a resposta; o card mostra as competências e o botão
   "Substituir e gravar", que reenvia **só aquela empresa** com `substituir: true`;
+- 400 → `erro` com a mensagem de validação da API no card (ex.: Nº da
+  Declaração inválido), retentável depois de corrigir;
 - outro erro → `erro`, retentável.
 
 **Por que não um endpoint multi-cliente?** A API já é atômica por cliente, a
@@ -181,6 +207,11 @@ na mesma ordem do passo 2.
   um PDF misturar empresas] → O PGDAS-D emite um documento por CNPJ; a herança
   vale só dentro do arquivo e só para bloco sem CNPJ algum. Bloco com CNPJ
   próprio sempre vai para a própria empresa.
+- [Data de abertura de uma empresa gravada no cadastro de outra — a gravação
+  substitui `Cliente.DataAbertura`, então o erro seria silencioso e só
+  apareceria no demonstrativo] → A data é derivada por empresa (D2), nunca do
+  lote; `montarRequisicao` lê só `empresa.dataAbertura`; teste dedicado no
+  `lote.spec.ts` com duas empresas em que só uma traz a data.
 - [Identificação em massa grava o CNPJ completo no cliente
   (`IdentificarClienteAsync` já faz isso hoje)] → Comportamento inalterado,
   apenas executado N vezes; o CNPJ completo é o que a spec "O CNPJ completo é

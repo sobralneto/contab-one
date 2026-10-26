@@ -35,6 +35,14 @@ risco de misturar apurações de CNPJs diferentes.
   cadastro de cliente novo, conflito de competência já gravada e confirmação de
   substituição são resolvidos **por empresa**, e a gravação de uma empresa não
   depende das demais. Um botão grava de uma vez todas as empresas prontas.
+- A **data de abertura no CNPJ** e o **Nº da Declaração**, que o extrator lê
+  desde a change `demonstrativo-faturamento-pgdas`, passam a ser tratados por
+  empresa: o pedido de gravação de cada empresa leva só a data de abertura e os
+  números lidos dos documentos **dela**. Hoje a data vem do primeiro documento
+  do lote que a traz — num lote com várias empresas isso gravaria a data de
+  abertura de uma empresa no cadastro de outra, porque a gravação substitui
+  `Cliente.DataAbertura`. Por isso a data de abertura também aparece, só para
+  leitura, na identificação de cada card.
 - Remover um arquivo no passo 1 remove também as competências que vieram dele
   (hoje só some da lista de arquivos).
 - Ao final, com uma única empresa o fluxo segue para a dashboard dela, como hoje;
@@ -69,7 +77,11 @@ risco de misturar apurações de CNPJs diferentes.
   - Provável extração de um componente de card por empresa
     (`src/components/pgdas/`) para manter a view legível.
   - `PgdasImportacaoView.spec.ts` atualizado e novos testes do agrupamento.
+  - `e2e/pgdas.spec.ts` (Playwright), que percorre a importação clicando em
+    "Identificar cliente" e "Gravar" — botões que mudam de nome ou de lugar.
 - **API**: nenhuma alteração de contrato. `IdentificarClienteAsync` e
   `GravarApuracoesAsync` passam a ser chamados N vezes por lote, um por empresa.
+  `GravarApuracoesRequest` já aceita `dataAberturaCliente` e, por apuração,
+  `numeroDeclaracao` (change `demonstrativo-faturamento-pgdas`).
 - **Privacidade**: inalterada — o documento continua no navegador, a API só
   recebe valores conferidos e o CNPJ segue mascarado na tela de importação.
